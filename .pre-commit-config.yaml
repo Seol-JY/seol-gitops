@@ -1,0 +1,13 @@
+repos:
+  - repo: local
+    hooks:
+      - id: gitleaks
+        name: gitleaks (staged files)
+        entry: gitleaks git --pre-commit --staged --redact --verbose
+        language: system
+        pass_filenames: false
+      - id: forbid-plain-secrets
+        name: forbid plain Kubernetes Secret manifests
+        entry: hack/forbid-plain-secrets.sh
+        language: script
+        pass_filenames: false

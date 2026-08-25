@@ -1,0 +1,33 @@
+crds:
+  enabled: true
+  keep: true
+
+startupapicheck:  # post-install Job 이 느린 노드에서 sync 를 막아 비활성
+  enabled: false
+
+dns01RecursiveNameservers: "1.1.1.1:53,8.8.8.8:53"  # DNS01 전파 확인은 공개 리졸버로
+dns01RecursiveNameserversOnly: true
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+webhook:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+cainjector:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+prometheus:
+  enabled: false

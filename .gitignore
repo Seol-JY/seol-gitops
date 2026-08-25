@@ -1,0 +1,21 @@
+# plaintext secrets: never commit
+*.plain.yaml
+*.plain.yml
+*.secret.yaml
+*.secret.yml
+secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+.env
+.env.*
+kubeconfig*
+k3s.yaml
+node-token
+sealed-secrets-key*.yaml
+
+.DS_Store
+.idea/
+.vscode/
+*.swp

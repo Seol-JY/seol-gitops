@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: argocd
+
+resources:
+  - namespace.yaml
+  - https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.1/manifests/install.yaml
+
+patches:
+  - path: patches/remove-unused.yaml  # dex(SSO), notifications 미사용
+  - target:
+      kind: Deployment
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector/node-role.kubernetes.io~1control-plane
+        value: "true"
+  - target:
+      kind: StatefulSet
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector/node-role.kubernetes.io~1control-plane
+        value: "true"
+  - path: patches/resources.yaml
+  - path: patches/argocd-cm.yaml
+  - path: patches/argocd-cmd-params-cm.yaml
