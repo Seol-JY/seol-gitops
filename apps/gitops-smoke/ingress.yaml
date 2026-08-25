@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gitops-smoke
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts: [gitops-smoke.seol.pro]
+  rules:
+    - host: gitops-smoke.seol.pro
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gitops-smoke
+                port:
+                  name: http
