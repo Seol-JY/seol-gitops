@@ -187,14 +187,14 @@ kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=5 | grep Cl
 
 | NSG | 부착 | 규칙 |
 |---|---|---|
-| `k3s-nodes` | cp-1, worker-1, worker-2 | ingress: TCP 22 ← PC IP, UDP 8472 ← 10.0.0.0/16, TCP 10250 ← 10.0.0.0/16, TCP 80/443 ← NSG `k3s-lb` 와 NLB 사설 IP/32. egress: all |
+| `k3s-nodes` | cp-1, worker-1, worker-2 | ingress: TCP 22 ← PC IP, UDP 8472 ← 10.0.0.0/16, TCP 10250 ← 10.0.0.0/16, TCP 80/443 ← NSG `k3s-lb`. egress: all |
 | `k3s-control-plane` | cp-1 | ingress: TCP 6443 ← 10.0.0.0/16, TCP 6443 ← PC IP |
 | `k3s-lb` | NLB `k3s-ingress` | ingress: TCP 80/443 ← 0.0.0.0/0 |
 | `instance-server` | InstanceServer | ingress: TCP 80/443 ← 0.0.0.0/0 |
 
 - Security List 와 NSG 는 둘 중 하나라도 허용하면 통과. 그래서 노드 80/443 을 좁히려면 Security List 에서 먼저 빼야 하고, 같은 서브넷의 InstanceServer 노출은 전용 NSG 로 옮겨 보존했다
 - 인터넷 → NLB 는 `k3s-lb`, NLB → 노드는 `k3s-nodes` 가 담당. `k3s-lb` 에 ingress 를 넣지 않으면 NLB 자체가 인터넷에서 닿지 않는다
-- 노드 80/443 규칙을 NSG 참조와 NLB 사설 IP/32 두 방식으로 함께 걸어뒀다. 헬스체크 프로브가 NSG 참조로 매칭되는지 미확인이라 둔 안전망이고, NLB 를 재생성하면 사설 IP 쪽 규칙을 갱신해야 한다
+- 노드 80/443 의 source 는 CIDR 이 아니라 NSG `k3s-lb` 참조다. 트래픽과 헬스체크 프로브 모두 이 규칙으로 통과하는 것을 확인했으므로, NLB 를 재생성해 사설 IP 가 바뀌어도 규칙을 고칠 필요가 없다
 - SSH 22 는 Security List 에 `0.0.0.0/0` 으로 남겨둔다. PC IP 가 바뀌어도 SSH 로 들어가 전부 고칠 수 있는 마지막 경로다
 - 6443/8472/10250 은 NSG 로만 개방, OS iptables(6절)가 두 번째 층
 
