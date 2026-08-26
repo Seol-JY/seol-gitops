@@ -143,6 +143,7 @@ rm cf.plain.yaml
 - `deployment.replicas: 2` 와 `topologySpreadConstraints` 로 서로 다른 노드에 배치, 노드 하드 장애 시 파드 재스케줄이 기본 300초 걸리는 것을 회피
 - `websecure` 의 `proxyProtocol.trustedIPs` 가 NLB 443 리스너의 PPv2 헤더를 신뢰, PROXY 헤더가 없는 연결은 그대로 처리하므로 노드 직접 접속도 계속 동작
 - 의존은 한 방향이다. 리스너 PPv2 를 켠 채 이 설정을 지우면 헤더 바이트가 TLS 핸드셰이크를 깨뜨리므로, 끌 때는 Traefik 쪽을 나중에 지움
+- `logs.access` 는 JSON 으로 켜두고 web 엔트리포인트는 `observability.accessLogs: false` 로 제외, 308 리다이렉트와 헬스체크가 로그를 채우지 않게 함
 
 확인
 
@@ -151,6 +152,7 @@ curl -sI http://<앱>.seol.pro/ | head -1              # HTTP/1.1 308
 curl -sI https://<앱>.seol.pro/ | grep -i strict      # max-age=31536000
 curl -s http://<노드 공인 IP>/ping                     # OK
 kubectl -n kube-system get pods -l app.kubernetes.io/name=traefik -o wide
+kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=5 | grep ClientHost   # PPv2 로 받은 원본 IP
 ```
 
 되돌리기: `infra/traefik/` 삭제 후 push, Argo CD 가 prune 하면 helm-controller 가 차트 기본값으로 복원
