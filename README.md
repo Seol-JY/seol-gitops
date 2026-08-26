@@ -48,7 +48,7 @@ flowchart LR
 - k3s 기본 구성: SQLite, Traefik(Ingress), ServiceLB, local-path(기본 StorageClass), metrics-server. secrets-encryption 활성
 - 도메인 `seol.pro` (Cloudflare, DNS only). 앱별 A 레코드는 수동으로 추가한다.
 - `http` 요청은 Traefik 이 전량 308 로 `https` 로 보내고, 응답에 HSTS `max-age=31536000` 을 붙인다.
-- 앱 A 레코드는 NLB 공인 IP(`146.56.xxx.xxx`)를 가리킨다. 노드 공인 IP 로 443 직접 접속은 PPv2 때문에 막혀 있다.
+- 앱 A 레코드는 NLB 공인 IP(`146.56.xxx.xxx`)를 가리킨다. 노드 공인 IP 로 직접 접속도 계속 동작하므로 장애 시 A 레코드만 되돌리면 된다.
 
 ## 레포 구조
 

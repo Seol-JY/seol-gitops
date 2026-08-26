@@ -141,7 +141,8 @@ rm cf.plain.yaml
 - `websecure` 응답에 `kube-system/hsts` Middleware 로 `max-age=31536000; includeSubDomains` 적용, `preload` 는 제거에 수개월 걸려 사용하지 않음
 - `/ping` 은 `IngressRoute` 로 web 엔트리포인트에 노출, priority 2000 으로 리다이렉트보다 높여 200 을 반환, NLB 헬스체크가 이 경로를 사용
 - `deployment.replicas: 2` 와 `topologySpreadConstraints` 로 서로 다른 노드에 배치, 노드 하드 장애 시 파드 재스케줄이 기본 300초 걸리는 것을 회피
-- `websecure` 의 `proxyProtocol.trustedIPs` 가 NLB 443 리스너의 PPv2 헤더를 신뢰, 이 설정과 리스너 설정은 반드시 같이 켜고 같이 끔
+- `websecure` 의 `proxyProtocol.trustedIPs` 가 NLB 443 리스너의 PPv2 헤더를 신뢰, PROXY 헤더가 없는 연결은 그대로 처리하므로 노드 직접 접속도 계속 동작
+- 의존은 한 방향이다. 리스너 PPv2 를 켠 채 이 설정을 지우면 헤더 바이트가 TLS 핸드셰이크를 깨뜨리므로, 끌 때는 Traefik 쪽을 나중에 지움
 
 확인
 
@@ -213,6 +214,7 @@ oci network nsg rules list --nsg-id <nsg OCID> --all
 - TLS 는 종료하지 않고 TCP 로 통과시킴, 인증서는 Traefik 이 다룸
 - 방화벽 변경 없음, 노드 NSG 의 TCP 80/443 ← `0.0.0.0/0` 이 LB→노드 트래픽과 헬스체크 프로브를 모두 덮음
 - 노드 추가·제거 시 백엔드셋 두 개를 모두 갱신
+- 노드 443 이 `0.0.0.0/0` 에 열려 있고 klipper 의 MASQUERADE 때문에 모든 연결이 신뢰 대역(`10.42.0.0/16`)에서 오는 것으로 보인다. 노드에 직접 붙어 PROXY 헤더를 위조하면 클라이언트 IP 를 속일 수 있으므로, IP 기반 접근 제어나 rate limit 을 도입하기 전에 NSG 의 443 을 NLB 사설 IP 로 좁혀야 함
 
 ```bash
 NLB=<nlb OCID>
@@ -221,7 +223,7 @@ oci nlb listener list --network-load-balancer-id $NLB --query 'data.items[].{nam
 curl -s --resolve <앱>.seol.pro:443:<LB 공인 IP> https://<앱>.seol.pro/
 ```
 
-되돌리기: A 레코드를 노드 공인 IP 로 되돌리려면 443 리스너의 PPv2 를 먼저 끄고 `infra/traefik/` 의 `proxyProtocol` 도 제거해야 함
+되돌리기: A 레코드를 노드 공인 IP 로 되돌리면 됨, PPv2 설정은 건드릴 필요 없음
 
 ## 8. 노드 추가 (worker-3)
 
