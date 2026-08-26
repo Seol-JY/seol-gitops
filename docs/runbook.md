@@ -170,6 +170,7 @@ kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=5 | grep Cl
 -A INPUT -s <PC IP>/32 -p tcp -m state --state NEW -m tcp --dport 6443 -j ACCEPT       # cp-1 만
 -A INPUT -s 10.0.0.0/16 -p udp -m udp --dport 8472 -j ACCEPT
 -A INPUT -s 10.0.0.0/16 -p tcp -m state --state NEW -m tcp --dport 10250 -j ACCEPT
+-A INPUT -s 10.0.0.0/16 -p tcp -m state --state NEW -m tcp --dport 9100 -j ACCEPT      # node-exporter
 -A INPUT -s 10.42.0.0/16 -j ACCEPT
 -A INPUT -s 10.43.0.0/16 -j ACCEPT
 -A INPUT -p tcp -m state --state NEW -m tcp --dport 80 -j ACCEPT
@@ -177,7 +178,9 @@ kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=5 | grep Cl
 # k3s (end)
 ```
 
-- 적용은 `sudo iptables-restore < /etc/iptables/rules.v4`
+- 규칙을 추가할 때는 파일을 고쳐 재부팅 뒤를 대비하고, 런타임에는 `sudo iptables -I INPUT <REJECT 줄번호> ...` 로 `REJECT` 앞에 끼워 넣는다
+- `iptables-restore` 로 전체를 복원하면 `filter` 테이블이 flush 되어 k3s 가 만든 `KUBE-*` 체인이 사라진다. kube-proxy 가 곧 재작성하지만 그 사이 파드 통신이 끊길 수 있다
+- 문법만 확인할 때는 `sudo iptables-restore --test /etc/iptables/rules.v4`
 - `netfilter-persistent reload` 는 `--noflush` 로 덧붙여 옛 `REJECT` 가 앞에 남음, 부팅 시에는 빈 테이블에서 시작하므로 문제없음
 - `FORWARD` 체인의 기본 `REJECT` 는 유지, k3s 네트워크 정책 컨트롤러가 로컬 파드 전달 트래픽을 `0x20000` 마크로 먼저 ACCEPT
 - `--disable-network-policy` 사용 시에만 `-A FORWARD -s 10.42.0.0/16 -j ACCEPT`, `-A FORWARD -d 10.42.0.0/16 -j ACCEPT` 를 `REJECT` 위에 추가
@@ -188,7 +191,7 @@ kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=5 | grep Cl
 
 | NSG | 부착 | 규칙 |
 |---|---|---|
-| `k3s-nodes` | cp-1, worker-1, worker-2 | ingress: TCP 22 ← PC IP, UDP 8472 ← 10.0.0.0/16, TCP 10250 ← 10.0.0.0/16, TCP 80/443 ← NSG `k3s-lb`. egress: all |
+| `k3s-nodes` | cp-1, worker-1, worker-2 | ingress: TCP 22 ← PC IP, UDP 8472 ← 10.0.0.0/16, TCP 10250 ← 10.0.0.0/16, TCP 9100 ← 10.0.0.0/16, TCP 80/443 ← NSG `k3s-lb`. egress: all |
 | `k3s-control-plane` | cp-1 | ingress: TCP 6443 ← 10.0.0.0/16, TCP 6443 ← PC IP |
 | `k3s-lb` | NLB `k3s-ingress` | ingress: TCP 80/443 ← 0.0.0.0/0 |
 | `instance-server` | InstanceServer | ingress: TCP 80/443 ← 0.0.0.0/0 |
@@ -197,7 +200,9 @@ kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=5 | grep Cl
 - 인터넷 → NLB 는 `k3s-lb`, NLB → 노드는 `k3s-nodes` 가 담당. `k3s-lb` 에 ingress 를 넣지 않으면 NLB 자체가 인터넷에서 닿지 않는다
 - 노드 80/443 의 source 는 CIDR 이 아니라 NSG `k3s-lb` 참조다. 트래픽과 헬스체크 프로브 모두 이 규칙으로 통과하는 것을 확인했으므로, NLB 를 재생성해 사설 IP 가 바뀌어도 규칙을 고칠 필요가 없다
 - SSH 22 는 Security List 에 `0.0.0.0/0` 으로 남겨둔다. PC IP 가 바뀌어도 SSH 로 들어가 전부 고칠 수 있는 마지막 경로다
-- 6443/8472/10250 은 NSG 로만 개방, OS iptables(6절)가 두 번째 층
+- 6443/8472/10250/9100 은 NSG 로만 개방, OS iptables(6절)가 두 번째 층
+- 파드에서 다른 노드의 노드 IP 로 가는 트래픽은 목적지가 파드·서비스 CIDR 밖이라 노드 IP 로 SNAT 된다. 그래서 iptables 의 `10.42.0.0/16 ACCEPT` 에 걸리지 않고, NSG 와 OS iptables 를 둘 다 열어야 통한다
+- NSG 차단은 조용한 timeout 이고, OS iptables 의 `REJECT --reject-with icmp-host-prohibited` 는 `no route to host` 를 돌려준다. 에러 문구로 어느 층이 막는지 구분할 수 있다
 
 ```bash
 oci session authenticate --profile-name k3s --region ap-chuncheon-1
@@ -264,6 +269,9 @@ kubectl -n argocd get applications
 - Grafana 는 초기 admin 생성을 끄고 익명 Admin 접근. 인증이 없으므로 Ingress 를 만들지 않고 port-forward 로만 접근한다
 - Operator 의 검증 웹훅도 끔. Argo CD 는 helm 의 `lookup` 을 빈 값으로 렌더링해 sync 마다 admin 비밀번호와 웹훅 TLS 인증서가 새로 생성된다
 - CRD 25개 중 가장 큰 것이 751KB 라 client-side apply 의 annotation 256KB 제한을 넘는다. Application 에 `ServerSideApply=true` 가 필요하다
+- Grafana sidecar 의 `skipReload` 를 켠다. reload API 는 Org Admin 이 아니라 서버 관리자 권한을 요구해 익명 접근으로는 403 이 된다. 대시보드는 provisioning 폴더 스캔으로 로드되고, datasource 변경은 파드 재시작으로 반영한다
+- node-exporter 는 `hostNetwork: true` 로 노드 IP 의 9100 에 붙는다. NSG 와 OS iptables 양쪽에 `9100 ← 10.0.0.0/16` 이 없으면 VMAgent 가 자기 노드만 수집한다(7절)
+- 노드 CPU·메모리는 kubelet(10250) 경유로도 들어온다. node-exporter 는 디스크·파일시스템·네트워크 상세를 더한다
 
 접근
 
