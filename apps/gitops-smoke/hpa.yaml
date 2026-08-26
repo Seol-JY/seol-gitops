@@ -1,0 +1,21 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gitops-smoke
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gitops-smoke
+  minReplicas: 1
+  maxReplicas: 10  # 워커 2대(각 1 OCPU)에 request 5m 이라 여유는 충분하고, 폭주 시 상한 역할만 한다
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60  # 기본값 300 은 축소를 눈으로 확인하기에 너무 길어 줄였다, 프로덕션 기본은 300

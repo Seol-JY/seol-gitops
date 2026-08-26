@@ -5,7 +5,6 @@ metadata:
   labels:
     app: gitops-smoke
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: gitops-smoke

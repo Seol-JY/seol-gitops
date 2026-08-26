@@ -6,6 +6,7 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress.yaml
+  - hpa.yaml
 images:
   - name: ghcr.io/seol-jy/seol-gitops-smoke
     newTag: 2e20197
