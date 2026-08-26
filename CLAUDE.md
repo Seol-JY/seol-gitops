@@ -25,6 +25,7 @@ k3s 클러스터를 Argo CD 로 운영하는 GitOps 레포지터리, 문서와 �
 ```bash
 kubectl kustomize infra/argocd >/dev/null
 kubectl kustomize infra/cert-manager-issuers >/dev/null
+kubectl kustomize infra/traefik >/dev/null
 gitleaks dir . --redact
 pre-commit run --all-files
 ```
