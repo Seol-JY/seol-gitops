@@ -144,6 +144,7 @@ rm cf.plain.yaml
 - `websecure` 의 `proxyProtocol.trustedIPs` 가 NLB 443 리스너의 PPv2 헤더를 신뢰, PROXY 헤더가 없는 연결은 그대로 처리하므로 노드 직접 접속도 계속 동작
 - 의존은 한 방향이다. 리스너 PPv2 를 켠 채 이 설정을 지우면 헤더 바이트가 TLS 핸드셰이크를 깨뜨리므로, 끌 때는 Traefik 쪽을 나중에 지움
 - `logs.access` 는 JSON 으로 켜두고 web 엔트리포인트는 `observability.accessLogs: false` 로 제외, 308 리다이렉트와 헬스체크가 로그를 채우지 않게 함
+- `resources` 는 requests 50m/64Mi, limits 256Mi (실사용 18Mi). `podDisruptionBudget.minAvailable: 1` 로 노드 drain 이 두 파드를 동시에 내리지 못하게 함
 
 확인
 

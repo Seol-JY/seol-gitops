@@ -9,6 +9,12 @@ spec:
   valuesContent: |-
     deployment:
       replicas: 2
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1  # 노드 drain 이 두 파드를 동시에 내리지 못하게 함
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+      limits: { memory: 256Mi }
     topologySpreadConstraints:
       - maxSkew: 1
         topologyKey: kubernetes.io/hostname
