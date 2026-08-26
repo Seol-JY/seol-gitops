@@ -272,6 +272,13 @@ kubectl -n argocd get applications
 - Grafana sidecar 의 `skipReload` 를 켠다. reload API 는 Org Admin 이 아니라 서버 관리자 권한을 요구해 익명 접근으로는 403 이 된다. 대시보드는 provisioning 폴더 스캔으로 로드되고, datasource 변경은 파드 재시작으로 반영한다
 - node-exporter 는 `hostNetwork: true` 로 노드 IP 의 9100 에 붙는다. NSG 와 OS iptables 양쪽에 `9100 ← 10.0.0.0/16` 이 없으면 VMAgent 가 자기 노드만 수집한다(7절)
 - 노드 CPU·메모리는 kubelet(10250) 경유로도 들어온다. node-exporter 는 디스크·파일시스템·네트워크 상세를 더한다
+- Grafana 는 `initDatasources`·`initDashboards` 로 sidecar 를 initContainer 로도 돌린다. datasource provisioning 은 시작 시점에만 파일을 읽으므로, `skipReload` 를 켠 채 이게 없으면 datasource 가 영구히 등록되지 않는다
+- Grafana 메모리는 requests 256Mi / limits 640Mi. 대시보드 수십 개를 provisioning 하면 실사용이 360Mi 를 넘어 256Mi limits 에서는 OOMKilled 된다
+- Traefik 메트릭은 `infra/traefik/vmpodscrape.yaml` 이 파드를 직접 긁는다. `metrics` 포트를 LoadBalancer Service 에 노출하면 klipper-lb 가 노드에 hostPort 9100 을 열어 node-exporter 와 충돌한다
+
+직접 만든 대시보드는 `infra/grafana-dashboards/` 에 JSON 을 두고 kustomize `configMapGenerator` 로 주입한다. `grafana_dashboard: "1"` 라벨이 있는 `monitoring` 네임스페이스의 ConfigMap 만 sidecar 가 읽는다(`searchNamespace` 미설정이라 자기 네임스페이스만 본다). `disableNameSuffixHash: true` 로 이름을 고정해야 갱신으로 인식된다
+
+Grafana UI 에서 편집한 내용은 provisioning 대시보드에 저장되지 않는다. JSON 으로 내보내 위 디렉터리의 파일을 갱신하고 push 한다
 
 접근
 
