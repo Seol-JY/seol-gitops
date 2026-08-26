@@ -11,3 +11,8 @@ repos:
         entry: hack/forbid-plain-secrets.sh
         language: script
         pass_filenames: false
+      - id: validate-manifests
+        name: kustomize build and Application schema
+        entry: hack/validate-manifests.sh
+        language: script
+        pass_filenames: false

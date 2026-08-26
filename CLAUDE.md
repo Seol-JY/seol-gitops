@@ -23,9 +23,7 @@ k3s 클러스터를 Argo CD 로 운영하는 GitOps 레포지터리, 문서와 �
 ## 검증
 
 ```bash
-kubectl kustomize infra/argocd >/dev/null
-kubectl kustomize infra/cert-manager-issuers >/dev/null
-kubectl kustomize infra/traefik >/dev/null
+hack/validate-manifests.sh   # kustomize build 전체 + Application 스키마
 gitleaks dir . --redact
 pre-commit run --all-files
 ```

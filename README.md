@@ -75,7 +75,7 @@ hack/             pre-commit 훅 스크립트
 ## 시크릿 정책
 
 - 클러스터 시크릿은 SealedSecret(`*.sealedsecret.yaml`)만 커밋한다. 평문은 `*.plain.yaml` 로 두면 `.gitignore` 가 차단한다.
-- `pre-commit` 훅(gitleaks + 평문 `kind: Secret` 검사)이 커밋 시 검사한다.
+- `pre-commit` 훅(gitleaks + 평문 `kind: Secret` 검사 + kustomize build 검증)이 커밋 시 검사한다.
 
 ## 로컬 준비
 
