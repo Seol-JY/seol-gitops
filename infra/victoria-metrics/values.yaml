@@ -56,6 +56,13 @@ grafana:
   # 초기 admin 생성을 끄면 그 Secret 자체가 만들어지지 않는다
   env:
     GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: "true"
+  sidecar:
+    # reload API 는 서버 관리자 권한을 요구해 익명 접근으로는 403 이 된다
+    # 대시보드는 provisioning 폴더 스캔으로 로드되고, datasource 변경은 파드 재시작으로 반영한다
+    dashboards:
+      skipReload: true
+    datasources:
+      skipReload: true
   grafana.ini:
     auth.anonymous:
       enabled: true
