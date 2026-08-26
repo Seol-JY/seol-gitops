@@ -272,7 +272,9 @@ kubectl -n argocd get applications
 - Grafana sidecar 의 `skipReload` 를 켠다. reload API 는 Org Admin 이 아니라 서버 관리자 권한을 요구해 익명 접근으로는 403 이 된다. 대시보드는 provisioning 폴더 스캔으로 로드되고, datasource 변경은 파드 재시작으로 반영한다
 - node-exporter 는 `hostNetwork: true` 로 노드 IP 의 9100 에 붙는다. NSG 와 OS iptables 양쪽에 `9100 ← 10.0.0.0/16` 이 없으면 VMAgent 가 자기 노드만 수집한다(7절)
 - 노드 CPU·메모리는 kubelet(10250) 경유로도 들어온다. node-exporter 는 디스크·파일시스템·네트워크 상세를 더한다
-- Grafana 는 `initDatasources`·`initDashboards` 로 sidecar 를 initContainer 로도 돌린다. datasource provisioning 은 시작 시점에만 파일을 읽으므로, `skipReload` 를 켠 채 이게 없으면 datasource 가 영구히 등록되지 않는다
+- `skipReload` 는 대시보드에만 켠다. datasource provisioning 은 시작 시점에만 파일을 읽어 reload 요청이 필요하고, 대시보드는 폴더를 주기적으로 스캔해 필요 없다
+- `initDatasources`·`initDashboards` 는 쓸 수 없다. 차트가 initContainer 에도 `watchMethod`(기본 WATCH)를 넘겨 initContainer 가 종료하지 않고 파드가 `Init` 에서 멈춘다. `LIST` 로 바꾸면 상시 sidecar 가 한 번 돌고 죽는다
+- datasource 등록은 sidecar 가 파일을 쓰는 시점과 Grafana 시작 시점의 경쟁이다. 익명 접근이라 reload 는 403 이 된다. 확실히 하려면 `admin.existingSecret` 으로 admin 자격을 주어 reload 를 성공시켜야 한다
 - Grafana 메모리는 requests 256Mi / limits 640Mi. 대시보드 수십 개를 provisioning 하면 실사용이 360Mi 를 넘어 256Mi limits 에서는 OOMKilled 된다
 - Traefik 메트릭은 `infra/traefik/vmpodscrape.yaml` 이 파드를 직접 긁는다. `metrics` 포트를 LoadBalancer Service 에 노출하면 klipper-lb 가 노드에 hostPort 9100 을 열어 node-exporter 와 충돌한다
 
