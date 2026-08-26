@@ -58,11 +58,14 @@ grafana:
     GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: "true"
   sidecar:
     # reload API 는 서버 관리자 권한을 요구해 익명 접근으로는 403 이 된다
-    # 대시보드는 provisioning 폴더 스캔으로 로드되고, datasource 변경은 파드 재시작으로 반영한다
+    # 대신 sidecar 를 initContainer 로도 돌려 Grafana 가 뜨기 전에 provisioning 파일을 깔아둔다
+    # datasource provisioning 은 시작 시점에만 읽으므로 이게 없으면 reload 없이 영구 미등록이 된다
     dashboards:
       skipReload: true
+      initDashboards: true
     datasources:
       skipReload: true
+      initDatasources: true
   grafana.ini:
     auth.anonymous:
       enabled: true
@@ -80,9 +83,9 @@ grafana:
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi
-    limits:
       memory: 256Mi
+    limits:
+      memory: 640Mi  # 대시보드 39개를 provisioning 하며 실측 361Mi, 256Mi 로는 OOMKilled 됐다
 
 kube-state-metrics:
   resources:
