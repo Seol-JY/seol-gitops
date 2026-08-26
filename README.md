@@ -27,6 +27,7 @@ flowchart LR
     traefik[Traefik<br/>2 replica · 노드 분산<br/>TLS 종료 · HTTP 는 308]
     cm[cert-manager]
     ss[Sealed Secrets]
+    vm[VictoriaMetrics + Grafana<br/>worker-2 고정 · 보관 7일<br/>알림 없음]
   end
 
   argocd -->|sync| api
@@ -36,6 +37,7 @@ flowchart LR
   cm -.DNS01 TXT.-> cfapi[Cloudflare API]
   cm -->|*.seol.pro 인증서| traefik
   ss -->|SealedSecret 복호화| apps1 & apps2
+  vm -. 노드·파드 지표 scrape .-> apps1 & apps2
 ```
 
 | 노드 | 역할 | 사양 | 사설 IP | 공인 IP | 라벨 |
@@ -54,7 +56,7 @@ flowchart LR
 
 ```
 argocd/           루트 App of Apps(root.yaml) 와 자식 Application(applications/)
-infra/            Argo CD, Sealed Secrets, cert-manager, ClusterIssuer·와일드카드 인증서, Traefik 설정
+infra/            Argo CD, Sealed Secrets, cert-manager, ClusterIssuer·와일드카드 인증서, Traefik 설정, 모니터링
 apps/             앱별 디렉터리 (규약: apps/README.md)
 docs/runbook.md   운영 절차
 hack/             pre-commit 훅 스크립트
@@ -71,6 +73,7 @@ hack/             pre-commit 훅 스크립트
 | Sealed Secrets | chart 2.19.3 / app 0.39.1 |
 | cert-manager | chart v1.21.1 |
 | Traefik | chart 40.1.4+up40.1.0 (k3s 내장, HelmChartConfig 로 값만 덮어씀) |
+| VictoriaMetrics | chart 0.91.2 / app v1.150.0 (k8s-stack, 알림 컴포넌트 제외) |
 
 ## 시크릿 정책
 
@@ -80,11 +83,22 @@ hack/             pre-commit 훅 스크립트
 ## 로컬 준비
 
 ```bash
-brew install kubernetes-cli kubeseal gitleaks pre-commit
+brew install kubernetes-cli kubeseal gitleaks pre-commit k9s helm
 pre-commit install
 ```
 
 kubeconfig 구성과 운영 절차는 `docs/runbook.md`.
+
+## 대시보드
+
+모두 `kubectl port-forward` 로만 접근한다.
+
+| 대상 | 명령 | 주소 | 계정 |
+|---|---|---|---|
+| k9s | `k9s` | 터미널 UI | kubeconfig 사용, 계정 없음 |
+| Argo CD | `kubectl -n argocd port-forward svc/argocd-server 8080:80` | `http://localhost:8080` | `admin` / 아래 명령으로 확인 |
+| Grafana | `kubectl -n monitoring port-forward svc/vm-grafana 3000:80` | `http://localhost:3000` | 익명 Admin, 로그인 없음 |
+
 
 ## 앱 추가
 

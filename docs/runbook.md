@@ -253,7 +253,32 @@ kubectl get nodes
 kubectl -n argocd get applications
 ```
 
-## 10. 향후 확장
+## 10. 모니터링
+
+`victoria-metrics-k8s-stack` 으로 지표와 대시보드만 운영, 알림은 두지 않음
+
+- VMSingle(시계열 저장)과 Grafana 를 `tier=data-b`(worker-2)에 고정, PVC 가 `local-path` 라 노드 로컬 디스크를 쓰므로 파드도 그 노드에 묶인다
+- 보관 7일, scrape 15초, PVC 5Gi. 기본값(1개월·20s·20Gi)은 부하 감상 용도에 과하다
+- 알림(Alertmanager·VMAlert·기본 룰)은 끔. 클러스터 안의 알림은 클러스터가 죽으면 나가지 않으므로 외부 감시로 따로 해결한다
+- `kubeControllerManager`·`kubeScheduler`·`kubeEtcd` scrape 를 끔. k3s 는 두 컴포넌트를 server 프로세스에 통합했고 저장소는 sqlite 라 scrape 대상이 없다
+- Grafana 는 초기 admin 생성을 끄고 익명 Admin 접근. 인증이 없으므로 Ingress 를 만들지 않고 port-forward 로만 접근한다
+- Operator 의 검증 웹훅도 끔. Argo CD 는 helm 의 `lookup` 을 빈 값으로 렌더링해 sync 마다 admin 비밀번호와 웹훅 TLS 인증서가 새로 생성된다
+- CRD 25개 중 가장 큰 것이 751KB 라 client-side apply 의 annotation 256KB 제한을 넘는다. Application 에 `ServerSideApply=true` 가 필요하다
+
+접근
+
+```bash
+kubectl -n monitoring port-forward svc/vm-grafana 3000:80   # http://localhost:3000
+kubectl -n monitoring get vmsingle,vmagent
+```
+
+HPA 변화는 `kube_horizontalpodautoscaler_status_current_replicas` 와 `..._desired_replicas` 를 한 패널에 겹쳐 그리면 안정화 창 때문에 두 값이 벌어지는 구간이 보인다
+
+직접 만든 대시보드는 Grafana 에 저장되지 않는다(`persistence` 끔). JSON 으로 내보내 레포에 커밋한다
+
+되돌리기: `argocd/applications/infra-victoria-metrics.yaml` 삭제 후 push. `prune` 이 CRD 까지 지우므로 CR 도 함께 사라진다
+
+## 11. 향후 확장
 
 - DB, Redis: `apps/<앱>/` 에 StatefulSet + PVC(`storageClassName: local-path`) + `nodeSelector: {tier: data-a}` 로 노드 고정, 데이터는 그 노드의 `/var/lib/rancher/k3s/storage/` 에 저장
 - CI/CD: 앱 레포지터리 GitHub Actions → GHCR push → 이 레포지터리 `apps/<앱>/kustomization.yaml` 의 `images[].newTag` 갱신 커밋 → Argo CD 자동 배포, 프라이빗 이미지는 `imagePullSecret` 을 SealedSecret 으로
