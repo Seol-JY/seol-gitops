@@ -13,8 +13,7 @@ chmod 600 ~/.kube/config
 kubectl get nodes
 ```
 
-- 6443 은 VCN 과 작업용 PC IP 에만 허용
-- PC IP 변경 시 7절 NSG 규칙과 6절 iptables 줄을 함께 수정
+- 6443 접근 제어는 NSG `k3s-control-plane` 한 곳, PC IP 변경 시 7절 규칙만 수정
 
 ## 2. k3s 설정
 
@@ -166,8 +165,7 @@ kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=5 | grep Cl
 
 ```
 # k3s (begin)
--A INPUT -s 10.0.0.0/16 -p tcp -m state --state NEW -m tcp --dport 6443 -j ACCEPT      # cp-1 만
--A INPUT -s <PC IP>/32 -p tcp -m state --state NEW -m tcp --dport 6443 -j ACCEPT       # cp-1 만
+-A INPUT -p tcp -m state --state NEW -m tcp --dport 6443 -j ACCEPT                      # cp-1 만, 소스 제어는 NSG
 -A INPUT -s 10.0.0.0/16 -p udp -m udp --dport 8472 -j ACCEPT
 -A INPUT -s 10.0.0.0/16 -p tcp -m state --state NEW -m tcp --dport 10250 -j ACCEPT
 -A INPUT -s 10.0.0.0/16 -p tcp -m state --state NEW -m tcp --dport 9100 -j ACCEPT      # node-exporter
@@ -200,7 +198,7 @@ kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=5 | grep Cl
 - 인터넷 → NLB 는 `k3s-lb`, NLB → 노드는 `k3s-nodes` 가 담당. `k3s-lb` 에 ingress 를 넣지 않으면 NLB 자체가 인터넷에서 닿지 않는다
 - 노드 80/443 의 source 는 CIDR 이 아니라 NSG `k3s-lb` 참조다. 트래픽과 헬스체크 프로브 모두 이 규칙으로 통과하는 것을 확인했으므로, NLB 를 재생성해 사설 IP 가 바뀌어도 규칙을 고칠 필요가 없다
 - SSH 22 는 Security List 에 `0.0.0.0/0` 으로 남겨둔다. PC IP 가 바뀌어도 SSH 로 들어가 전부 고칠 수 있는 마지막 경로다
-- 6443/8472/10250/9100 은 NSG 로만 개방, OS iptables(6절)가 두 번째 층
+- 8472/10250/9100 은 NSG 와 OS iptables(6절) 두 층, 6443 은 NSG 만
 - 파드에서 다른 노드의 노드 IP 로 가는 트래픽은 목적지가 파드·서비스 CIDR 밖이라 노드 IP 로 SNAT 된다. 그래서 iptables 의 `10.42.0.0/16 ACCEPT` 에 걸리지 않고, NSG 와 OS iptables 를 둘 다 열어야 통한다
 - NSG 차단은 조용한 timeout 이고, OS iptables 의 `REJECT --reject-with icmp-host-prohibited` 는 `no route to host` 를 돌려준다. 에러 문구로 어느 층이 막는지 구분할 수 있다
 
