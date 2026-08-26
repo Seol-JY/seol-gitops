@@ -266,7 +266,8 @@ kubectl -n argocd get applications
 - 보관 7일, scrape 15초, PVC 5Gi. 기본값(1개월·20s·20Gi)은 부하 감상 용도에 과하다
 - 알림(Alertmanager·VMAlert·기본 룰)은 끔. 클러스터 안의 알림은 클러스터가 죽으면 나가지 않으므로 외부 감시로 따로 해결한다
 - `kubeControllerManager`·`kubeScheduler`·`kubeEtcd` scrape 를 끔. k3s 는 두 컴포넌트를 server 프로세스에 통합했고 저장소는 sqlite 라 scrape 대상이 없다
-- Grafana 는 초기 admin 생성을 끄고 익명 Admin 접근. 인증이 없으므로 Ingress 를 만들지 않고 port-forward 로만 접근한다
+- Grafana admin 자격은 `infra/grafana/grafana-admin.sealedsecret.yaml` 이 제공하고 `admin.existingSecret` 으로 참조한다. 차트가 만드는 Secret 은 helm `lookup` 에 의존해 Argo CD 에서 sync 마다 비밀번호가 바뀐다
+- 익명 접근은 `Viewer` 로 열어두어 로그인 없이 열람만 가능하다. 편집은 admin 로그인. Ingress 는 만들지 않고 port-forward 로만 접근한다
 - Operator 의 검증 웹훅도 끔. Argo CD 는 helm 의 `lookup` 을 빈 값으로 렌더링해 sync 마다 admin 비밀번호와 웹훅 TLS 인증서가 새로 생성된다
 - CRD 25개 중 가장 큰 것이 751KB 라 client-side apply 의 annotation 256KB 제한을 넘는다. Application 에 `ServerSideApply=true` 가 필요하다
 - Grafana sidecar 의 `skipReload` 를 켠다. reload API 는 Org Admin 이 아니라 서버 관리자 권한을 요구해 익명 접근으로는 403 이 된다. 대시보드는 provisioning 폴더 스캔으로 로드되고, datasource 변경은 파드 재시작으로 반영한다
@@ -274,7 +275,7 @@ kubectl -n argocd get applications
 - 노드 CPU·메모리는 kubelet(10250) 경유로도 들어온다. node-exporter 는 디스크·파일시스템·네트워크 상세를 더한다
 - `skipReload` 는 대시보드에만 켠다. datasource provisioning 은 시작 시점에만 파일을 읽어 reload 요청이 필요하고, 대시보드는 폴더를 주기적으로 스캔해 필요 없다
 - `initDatasources`·`initDashboards` 는 쓸 수 없다. 차트가 initContainer 에도 `watchMethod`(기본 WATCH)를 넘겨 initContainer 가 종료하지 않고 파드가 `Init` 에서 멈춘다. `LIST` 로 바꾸면 상시 sidecar 가 한 번 돌고 죽는다
-- datasource 등록은 sidecar 가 파일을 쓰는 시점과 Grafana 시작 시점의 경쟁이다. 익명 접근이라 reload 는 403 이 된다. 확실히 하려면 `admin.existingSecret` 으로 admin 자격을 주어 reload 를 성공시켜야 한다
+- admin 자격이 없으면 sidecar 의 reload 가 403 이 되어 datasource 등록이 파드 시작 타이밍에 좌우된다. SealedSecret 을 참조하는 이유가 이것이다
 - Grafana 메모리는 requests 256Mi / limits 640Mi. 대시보드 수십 개를 provisioning 하면 실사용이 360Mi 를 넘어 256Mi limits 에서는 OOMKilled 된다
 - Traefik 메트릭은 `infra/traefik/vmpodscrape.yaml` 이 파드를 직접 긁는다. `metrics` 포트를 LoadBalancer Service 에 노출하면 klipper-lb 가 노드에 hostPort 9100 을 열어 node-exporter 와 충돌한다
 

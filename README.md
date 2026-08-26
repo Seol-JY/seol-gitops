@@ -97,8 +97,14 @@ kubeconfig 구성과 운영 절차는 `docs/runbook.md`.
 |---|---|---|---|
 | k9s | `k9s` | 터미널 UI | kubeconfig 사용, 계정 없음 |
 | Argo CD | `kubectl -n argocd port-forward svc/argocd-server 8080:80` | `http://localhost:8080` | `admin` / 아래 명령으로 확인 |
-| Grafana | `kubectl -n monitoring port-forward svc/vm-grafana 3000:80` | `http://localhost:3000` | 익명 Admin, 로그인 없음 |
+| Grafana | `kubectl -n monitoring port-forward svc/vm-grafana 3000:80` | `http://localhost:3000` | 열람은 로그인 없이, 편집은 `admin` |
 
+비밀번호 확인
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
+kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d; echo
+```
 
 ## 앱 추가
 

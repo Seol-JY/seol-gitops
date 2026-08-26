@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: grafana-dashboards
+  name: grafana
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "2"  # victoria-metrics(1) 가 monitoring 네임스페이스를 만든 뒤
@@ -12,7 +12,7 @@ spec:
   source:
     repoURL: https://github.com/Seol-JY/seol-gitops.git
     targetRevision: main
-    path: infra/grafana-dashboards
+    path: infra/grafana
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

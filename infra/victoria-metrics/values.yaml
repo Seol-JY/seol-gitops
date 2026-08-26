@@ -52,13 +52,15 @@ victoria-metrics-operator:
       memory: 128Mi
 
 grafana:
-  # Argo CD 는 helm 의 lookup 을 항상 빈 값으로 렌더링해 sync 마다 admin 비밀번호가 새로 생성됨
-  # 초기 admin 생성을 끄면 그 Secret 자체가 만들어지지 않는다
-  env:
-    GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: "true"
+  # 차트가 만드는 Secret 은 helm lookup 에 의존해 Argo CD 에서 sync 마다 비밀번호가 새로 생성된다
+  # SealedSecret(infra/grafana/)을 참조하면 그 Secret 자체가 만들어지지 않는다
+  # sidecar 가 이 자격으로 provisioning reload 를 호출해 datasource 등록이 시작 타이밍과 무관해진다
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
   sidecar:
-    # 대시보드는 provisioning 폴더 스캔으로 로드되므로 reload 요청을 생략해 403 로그를 없앤다
-    # datasources 는 reload 가 필요해 켜둔다. provisioning 은 시작 시점에만 파일을 읽는다
+    # 대시보드는 provisioning 폴더를 주기적으로 스캔하므로 reload 요청이 필요 없다
     # initDatasources/initDashboards 는 쓸 수 없다. 차트가 initContainer 에도 watchMethod(WATCH)를
     # 넘겨 initContainer 가 종료하지 않고, LIST 로 바꾸면 상시 sidecar 가 죽는다
     dashboards:
@@ -66,9 +68,7 @@ grafana:
   grafana.ini:
     auth.anonymous:
       enabled: true
-      org_role: Admin
-    auth.basic:
-      enabled: false
+      org_role: Viewer  # 열람은 로그인 없이, 편집은 admin 로그인
     users:
       allow_sign_up: false
   ingress:
