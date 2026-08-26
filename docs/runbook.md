@@ -150,7 +150,7 @@ rm cf.plain.yaml
 ```bash
 curl -sI http://<앱>.seol.pro/ | head -1              # HTTP/1.1 308
 curl -sI https://<앱>.seol.pro/ | grep -i strict      # max-age=31536000
-curl -s http://<노드 공인 IP>/ping                     # OK
+curl -s http://<LB 공인 IP>/ping                       # OK, 노드 공인 IP 는 NSG 로 차단됨
 kubectl -n kube-system get pods -l app.kubernetes.io/name=traefik -o wide
 kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=5 | grep ClientHost   # PPv2 로 받은 원본 IP
 ```
@@ -183,16 +183,20 @@ kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=5 | grep Cl
 
 ## 7. OCI 네트워크
 
-서브넷 공유 Security List 는 TCP 22/80/443(0.0.0.0/0)과 ICMP type 3 만 유지, k3s 전용 포트는 노드 VNIC 의 NSG 두 개로 개방
+서브넷 공유 Security List 는 TCP 22(0.0.0.0/0)와 ICMP type 3 만 유지, 나머지는 전부 VNIC 별 NSG 로 개방
 
 | NSG | 부착 | 규칙 |
 |---|---|---|
-| `k3s-nodes` | cp-1, worker-1, worker-2 | ingress: TCP 22 ← PC IP, UDP 8472 ← 10.0.0.0/16, TCP 10250 ← 10.0.0.0/16, TCP 80/443 ← 0.0.0.0/0. egress: all |
+| `k3s-nodes` | cp-1, worker-1, worker-2 | ingress: TCP 22 ← PC IP, UDP 8472 ← 10.0.0.0/16, TCP 10250 ← 10.0.0.0/16, TCP 80/443 ← NSG `k3s-lb` 와 NLB 사설 IP/32. egress: all |
 | `k3s-control-plane` | cp-1 | ingress: TCP 6443 ← 10.0.0.0/16, TCP 6443 ← PC IP |
+| `k3s-lb` | NLB `k3s-ingress` | ingress: TCP 80/443 ← 0.0.0.0/0 |
+| `instance-server` | InstanceServer | ingress: TCP 80/443 ← 0.0.0.0/0 |
 
-- Security List 와 NSG 는 둘 중 하나라도 허용하면 통과
+- Security List 와 NSG 는 둘 중 하나라도 허용하면 통과. 그래서 노드 80/443 을 좁히려면 Security List 에서 먼저 빼야 하고, 같은 서브넷의 InstanceServer 노출은 전용 NSG 로 옮겨 보존했다
+- 인터넷 → NLB 는 `k3s-lb`, NLB → 노드는 `k3s-nodes` 가 담당. `k3s-lb` 에 ingress 를 넣지 않으면 NLB 자체가 인터넷에서 닿지 않는다
+- 노드 80/443 규칙을 NSG 참조와 NLB 사설 IP/32 두 방식으로 함께 걸어뒀다. 헬스체크 프로브가 NSG 참조로 매칭되는지 미확인이라 둔 안전망이고, NLB 를 재생성하면 사설 IP 쪽 규칙을 갱신해야 한다
+- SSH 22 는 Security List 에 `0.0.0.0/0` 으로 남겨둔다. PC IP 가 바뀌어도 SSH 로 들어가 전부 고칠 수 있는 마지막 경로다
 - 6443/8472/10250 은 NSG 로만 개방, OS iptables(6절)가 두 번째 층
-- 같은 서브넷의 다른 인스턴스는 Security List 의 22/80/443 만 적용
 
 ```bash
 oci session authenticate --profile-name k3s --region ap-chuncheon-1
@@ -214,9 +218,9 @@ oci network nsg rules list --nsg-id <nsg OCID> --all
 | 헬스체크 (두 백엔드셋 공통) | HTTP, 포트 80, `/ping`, 기대 코드 200, 10초 간격, 타임아웃 3초, 재시도 3 |
 
 - TLS 는 종료하지 않고 TCP 로 통과시킴, 인증서는 Traefik 이 다룸
-- 방화벽 변경 없음, 노드 NSG 의 TCP 80/443 ← `0.0.0.0/0` 이 LB→노드 트래픽과 헬스체크 프로브를 모두 덮음
+- 노드 NSG 의 TCP 80/443 은 NLB 만 허용, 인터넷 → NLB 는 `k3s-lb` NSG 가 허용 (7절)
 - 노드 추가·제거 시 백엔드셋 두 개를 모두 갱신
-- 노드 443 이 `0.0.0.0/0` 에 열려 있고 klipper 의 MASQUERADE 때문에 모든 연결이 신뢰 대역(`10.42.0.0/16`)에서 오는 것으로 보인다. 노드에 직접 붙어 PROXY 헤더를 위조하면 클라이언트 IP 를 속일 수 있으므로, IP 기반 접근 제어나 rate limit 을 도입하기 전에 NSG 의 443 을 NLB 사설 IP 로 좁혀야 함
+- 노드 443 을 NLB 로 좁혔기 때문에 외부에서 PROXY 헤더를 위조해 클라이언트 IP 를 속이는 경로가 없다. 다시 넓히면 그 경로가 열린다
 
 ```bash
 NLB=<nlb OCID>
@@ -225,7 +229,7 @@ oci nlb listener list --network-load-balancer-id $NLB --query 'data.items[].{nam
 curl -s --resolve <앱>.seol.pro:443:<LB 공인 IP> https://<앱>.seol.pro/
 ```
 
-되돌리기: A 레코드를 노드 공인 IP 로 되돌리면 됨, PPv2 설정은 건드릴 필요 없음
+되돌리기: A 레코드를 노드 공인 IP 로 되돌리려면 `k3s-nodes` 에 TCP 80/443 ← `0.0.0.0/0` 을 먼저 다시 넣어야 함. PPv2 설정은 건드릴 필요 없음
 
 ## 8. 노드 추가 (worker-3)
 
