@@ -4,3 +4,4 @@ resources:
   - middleware-hsts.yaml
   - ingressroute-ping.yaml
   - helmchartconfig.yaml
+  - vmpodscrape.yaml

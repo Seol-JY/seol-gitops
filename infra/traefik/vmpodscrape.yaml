@@ -1,0 +1,17 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: traefik
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  # Service 가 아니라 파드를 직접 긁는다. metrics 포트를 LoadBalancer Service 에 노출하면
+  # klipper-lb 가 노드에 hostPort 9100 을 열어 node-exporter 와 충돌한다
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+      app.kubernetes.io/instance: traefik-kube-system
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
