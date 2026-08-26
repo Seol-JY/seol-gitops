@@ -11,7 +11,9 @@
 5. Ingress 의 `tls:` 에는 `secretName` 생략, Traefik 기본 TLSStore 가 `*.seol.pro` 와일드카드 인증서 사용
 6. DNS 는 Cloudflare 에 앱별 A 레코드(DNS only) 수동 추가, 와일드카드 DNS 레코드는 생성 금지
 7. 영속 데이터(DB, Redis)는 PVC(StorageClass `local-path`) + `nodeSelector: { tier: data-a | data-b }` 로 노드 고정
-8. `argocd/applications/app-<앱>.yaml` 에 Application 추가 후 push, 루트 App of Apps 가 자동 반영
+8. 파드 개수는 `replicas` 대신 `hpa.yaml`(HPA)로 관리
+9. HPA 의 `Utilization` 은 `resources.requests` 대비 비율이므로 모든 컨테이너에 requests 명시, 없으면 `<unknown>` 이 되어 스케일이 멈춤
+10. `argocd/applications/app-<앱>.yaml` 에 Application 추가 후 push, 루트 App of Apps 가 자동 반영
 
 ```yaml
 # argocd/applications/app-<앱>.yaml
