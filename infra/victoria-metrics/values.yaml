@@ -1,0 +1,94 @@
+alertmanager:
+  enabled: false
+vmalert:
+  enabled: false
+defaultRules:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+
+vmsingle:
+  spec:
+    retentionPeriod: 7d
+    nodeSelector:
+      tier: data-b  # PVC 가 local-path(노드 로컬)라 파드가 이 노드에 고정
+    storage:
+      storageClassName: local-path
+      resources:
+        requests:
+          storage: 5Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+
+vmagent:
+  spec:
+    scrapeInterval: 15s
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+victoria-metrics-operator:
+  # Argo CD 는 helm 의 lookup 을 빈 값으로 렌더링해 sync 마다 webhook TLS 인증서가 새로 생성됨
+  # CR 은 이 차트의 values 로만 만들어 오타 검증의 값이 낮으므로 끈다
+  admissionWebhooks:
+    enabled: false
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+grafana:
+  # Argo CD 는 helm 의 lookup 을 항상 빈 값으로 렌더링해 sync 마다 admin 비밀번호가 새로 생성됨
+  # 초기 admin 생성을 끄면 그 Secret 자체가 만들어지지 않는다
+  env:
+    GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: "true"
+  grafana.ini:
+    auth.anonymous:
+      enabled: true
+      org_role: Admin
+    auth.basic:
+      enabled: false
+    users:
+      allow_sign_up: false
+  ingress:
+    enabled: false
+  persistence:
+    enabled: false  # 대시보드는 차트가 ConfigMap 으로 주입, 직접 만든 것은 JSON 으로 내보내 레포에 커밋
+  nodeSelector:
+    tier: data-b
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
