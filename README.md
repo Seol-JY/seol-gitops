@@ -10,13 +10,13 @@ flowchart LR
   gh -.폴링.-> argocd
 
   subgraph oci[OCI ap-chuncheon-1 · VCN 10.0.0.0/16]
+    nlb[Network Load Balancer<br/>TCP 80·443 패스스루<br/>443 은 PPv2<br/>헬스체크 HTTP :80 /ping]
     subgraph cp[cp-1 · 2 OCPU/8 GB · control-plane]
       api[k3s server<br/>API 6443]
       argocd[Argo CD]
       svclb1[svclb :80/:443]
     end
     subgraph w1[worker-1 · 1 OCPU/8 GB · tier=data-a]
-      traefik[Traefik]
       svclb2[svclb :80/:443]
       apps1[앱 파드]
     end
@@ -24,13 +24,15 @@ flowchart LR
       svclb3[svclb :80/:443]
       apps2[앱 파드]
     end
+    traefik[Traefik<br/>2 replica · 노드 분산<br/>TLS 종료 · HTTP 는 308]
     cm[cert-manager]
     ss[Sealed Secrets]
   end
 
   argocd -->|sync| api
   user[사용자] -->|https app.seol.pro| cf[Cloudflare DNS<br/>DNS only]
-  cf --> svclb1 & svclb2 & svclb3 --> traefik --> apps1 & apps2
+  cf --> nlb
+  nlb --> svclb1 & svclb2 & svclb3 --> traefik --> apps1 & apps2
   cm -.DNS01 TXT.-> cfapi[Cloudflare API]
   cm -->|*.seol.pro 인증서| traefik
   ss -->|SealedSecret 복호화| apps1 & apps2
@@ -45,12 +47,14 @@ flowchart LR
 - 파드 CIDR `10.42.0.0/16`, 서비스 CIDR `10.43.0.0/16`
 - k3s 기본 구성: SQLite, Traefik(Ingress), ServiceLB, local-path(기본 StorageClass), metrics-server. secrets-encryption 활성
 - 도메인 `seol.pro` (Cloudflare, DNS only). 앱별 A 레코드는 수동으로 추가한다.
+- `http` 요청은 Traefik 이 전량 308 로 `https` 로 보내고, 응답에 HSTS `max-age=31536000` 을 붙인다.
+- 앱 A 레코드는 NLB 공인 IP(`146.56.xxx.xxx`)를 가리킨다. 노드 공인 IP 로 443 직접 접속은 PPv2 때문에 막혀 있다.
 
 ## 레포 구조
 
 ```
 argocd/           루트 App of Apps(root.yaml) 와 자식 Application(applications/)
-infra/            Argo CD, Sealed Secrets, cert-manager, ClusterIssuer·와일드카드 인증서
+infra/            Argo CD, Sealed Secrets, cert-manager, ClusterIssuer·와일드카드 인증서, Traefik 설정
 apps/             앱별 디렉터리 (규약: apps/README.md)
 docs/runbook.md   운영 절차
 hack/             pre-commit 훅 스크립트
@@ -66,6 +70,7 @@ hack/             pre-commit 훅 스크립트
 | Argo CD | v3.5.1 (비HA, upstream install.yaml + kustomize 패치) |
 | Sealed Secrets | chart 2.19.3 / app 0.39.1 |
 | cert-manager | chart v1.21.1 |
+| Traefik | chart 40.1.4+up40.1.0 (k3s 내장, HelmChartConfig 로 값만 덮어씀) |
 
 ## 시크릿 정책
 

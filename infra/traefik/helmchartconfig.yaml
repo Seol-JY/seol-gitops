@@ -1,0 +1,36 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"  # hsts Middleware 생성 후 적용
+spec:
+  valuesContent: |-
+    deployment:
+      replicas: 2
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: traefik
+            app.kubernetes.io/instance: traefik-kube-system
+    ports:
+      web:
+        http:
+          redirections:
+            entryPoint:
+              to: websecure
+              scheme: https
+              permanent: true
+              priority: 1000  # 앱 라우터(규칙 길이 기반, 수십)보다 높아야 전량 리다이렉트됨
+      websecure:
+        http:
+          middlewares:
+            - kube-system-hsts@kubernetescrd
+        proxyProtocol:
+          trustedIPs:  # NLB 443 리스너의 PPv2 헤더로 원본 클라이언트 IP 를 받음, klipper·kube-proxy 가 SNAT 한 뒤의 대역
+            - 10.42.0.0/16
+            - 10.0.0.0/16

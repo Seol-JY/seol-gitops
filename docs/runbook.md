@@ -131,7 +131,28 @@ kubeseal --format yaml < cf.plain.yaml > infra/cert-manager-issuers/cloudflare-a
 rm cf.plain.yaml
 ```
 
-앱 노출 순서: Cloudflare 에 `<앱>.seol.pro` A 레코드(DNS only) → cp-1 공인 IP → Ingress 커밋
+앱 노출 순서: Cloudflare 에 `<앱>.seol.pro` A 레코드(DNS only) → NLB 공인 IP → Ingress 커밋
+
+### Traefik 설정
+
+`infra/traefik/` 의 `HelmChartConfig` 가 k3s 내장 Traefik 의 차트 값만 덮어쓴다
+
+- `web`(80) 은 전량 `websecure`(443) 로 308 리다이렉트, priority 1000 은 앱 라우터(규칙 길이 기반, 보통 수십)보다 높게 잡은 값
+- `websecure` 응답에 `kube-system/hsts` Middleware 로 `max-age=31536000; includeSubDomains` 적용, `preload` 는 제거에 수개월 걸려 사용하지 않음
+- `/ping` 은 `IngressRoute` 로 web 엔트리포인트에 노출, priority 2000 으로 리다이렉트보다 높여 200 을 반환, NLB 헬스체크가 이 경로를 사용
+- `deployment.replicas: 2` 와 `topologySpreadConstraints` 로 서로 다른 노드에 배치, 노드 하드 장애 시 파드 재스케줄이 기본 300초 걸리는 것을 회피
+- `websecure` 의 `proxyProtocol.trustedIPs` 가 NLB 443 리스너의 PPv2 헤더를 신뢰, 이 설정과 리스너 설정은 반드시 같이 켜고 같이 끔
+
+확인
+
+```bash
+curl -sI http://<앱>.seol.pro/ | head -1              # HTTP/1.1 308
+curl -sI https://<앱>.seol.pro/ | grep -i strict      # max-age=31536000
+curl -s http://<노드 공인 IP>/ping                     # OK
+kubectl -n kube-system get pods -l app.kubernetes.io/name=traefik -o wide
+```
+
+되돌리기: `infra/traefik/` 삭제 후 push, Argo CD 가 prune 하면 helm-controller 가 차트 기본값으로 복원
 
 ## 6. 노드 OS 방화벽
 
@@ -176,6 +197,31 @@ export OCI_CLI_PROFILE=k3s OCI_CLI_AUTH=security_token
 oci network nsg list --compartment-id <tenancy OCID> --query 'data[].{name:"display-name",id:id}' --output table
 oci network nsg rules list --nsg-id <nsg OCID> --all
 ```
+
+### Network Load Balancer
+
+`k3s-ingress`, public, 노드와 같은 서브넷, 공인 IP 는 ephemeral (`146.56.xxx.xxx`)
+
+| 리소스 | 설정 |
+|---|---|
+| 리스너 `lsnr-http` | TCP 80 → `bs-http`, PPv2 끔 |
+| 리스너 `lsnr-https` | TCP 443 → `bs-https`, PPv2 켬 |
+| 백엔드셋 `bs-http` | 노드 사설 IP 3개 : 80, `is-preserve-source false` |
+| 백엔드셋 `bs-https` | 노드 사설 IP 3개 : 443, `is-preserve-source false` |
+| 헬스체크 (두 백엔드셋 공통) | HTTP, 포트 80, `/ping`, 기대 코드 200, 10초 간격, 타임아웃 3초, 재시도 3 |
+
+- TLS 는 종료하지 않고 TCP 로 통과시킴, 인증서는 Traefik 이 다룸
+- 방화벽 변경 없음, 노드 NSG 의 TCP 80/443 ← `0.0.0.0/0` 이 LB→노드 트래픽과 헬스체크 프로브를 모두 덮음
+- 노드 추가·제거 시 백엔드셋 두 개를 모두 갱신
+
+```bash
+NLB=<nlb OCID>
+oci nlb backend-set-health get --network-load-balancer-id $NLB --backend-set-name bs-https
+oci nlb listener list --network-load-balancer-id $NLB --query 'data.items[].{name:name,port:port,ppv2:"is-ppv2-enabled"}' --output table
+curl -s --resolve <앱>.seol.pro:443:<LB 공인 IP> https://<앱>.seol.pro/
+```
+
+되돌리기: A 레코드를 노드 공인 IP 로 되돌리려면 443 리스너의 PPv2 를 먼저 끄고 `infra/traefik/` 의 `proxyProtocol` 도 제거해야 함
 
 ## 8. 노드 추가 (worker-3)
 

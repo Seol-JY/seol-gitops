@@ -1,0 +1,17 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: traefik-ping
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: PathPrefix(`/ping`)
+      priority: 2000  # web 엔트리포인트 리다이렉트(1000)보다 높아야 헬스체크가 308 이 아닌 200 을 받음
+      services:
+        - name: ping@internal
+          kind: TraefikService
