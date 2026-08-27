@@ -9,4 +9,4 @@ resources:
   - hpa.yaml
 images:
   - name: ghcr.io/seol-jy/seol-gitops-smoke
-    newTag: 2e20197
+    newTag: 4b0bcdc
