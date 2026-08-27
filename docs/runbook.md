@@ -295,8 +295,3 @@ HPA 변화는 `kube_horizontalpodautoscaler_status_current_replicas` 와 `..._de
 직접 만든 대시보드는 Grafana 에 저장되지 않는다(`persistence` 끔). JSON 으로 내보내 레포에 커밋한다
 
 되돌리기: `argocd/applications/infra-victoria-metrics.yaml` 삭제 후 push. `prune` 이 CRD 까지 지우므로 CR 도 함께 사라진다
-
-## 11. 향후 확장
-
-- DB, Redis: `apps/<앱>/` 에 StatefulSet + PVC(`storageClassName: local-path`) + `nodeSelector: {tier: data-a}` 로 노드 고정, 데이터는 그 노드의 `/var/lib/rancher/k3s/storage/` 에 저장
-- CI/CD: 앱 레포지터리 GitHub Actions → GHCR push → 이 레포지터리 `apps/<앱>/kustomization.yaml` 의 `images[].newTag` 갱신 커밋 → Argo CD 자동 배포, 프라이빗 이미지는 `imagePullSecret` 을 SealedSecret 으로
