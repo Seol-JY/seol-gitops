@@ -108,7 +108,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace=\"$namespace\", horizontalpodautoscaler=\"$hpa\"}",
+          "expr": "count(kube_pod_info{namespace=\"$namespace\"})",
           "range": false,
           "instant": true
         }
@@ -1150,6 +1150,75 @@
         "overrides": []
       },
       "description": "k3s 는 control-plane 에 taint 를 걸지 않아 cp-1 에도 앱 파드가 뜬다"
+    },
+    {
+      "id": 17,
+      "type": "marcusolsson-dynamictext-panel",
+      "title": "노드별 파드 배치",
+      "description": "사각형 1개 = 파드 1개, 색은 파드 상태. 노드가 늘어나면 카드가 자동으로 재배치된다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 29
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "kube_pod_info{namespace=\"$namespace\"} or (sum by (node) (kube_node_info) * 0)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "label_replace(kube_pod_status_phase{namespace=\"$namespace\"} > 0, \"kind\",\"phase\",\"\",\"\") or label_replace(kube_pod_status_ready{namespace=\"$namespace\",condition=\"true\"}, \"kind\",\"ready\",\"\",\"\")",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "label_replace(max without (pod,instance,job,service,endpoint,container,prometheus,uid,namespace) (kube_horizontalpodautoscaler_status_desired_replicas{namespace=\"$namespace\",horizontalpodautoscaler=\"$hpa\"}), \"kind\",\"desired\",\"\",\"\") or label_replace(max without (pod,instance,job,service,endpoint,container,prometheus,uid,namespace) (kube_horizontalpodautoscaler_status_current_replicas{namespace=\"$namespace\",horizontalpodautoscaler=\"$hpa\"}), \"kind\",\"current\",\"\",\"\") or label_replace(max without (pod,instance,job,service,endpoint,container,prometheus,uid,namespace) (kube_horizontalpodautoscaler_spec_max_replicas{namespace=\"$namespace\",horizontalpodautoscaler=\"$hpa\"}), \"kind\",\"max\",\"\",\"\") or label_replace(max without (pod,instance,job,service,endpoint,container,prometheus,uid,namespace) (kube_horizontalpodautoscaler_spec_min_replicas{namespace=\"$namespace\",horizontalpodautoscaler=\"$hpa\"}), \"kind\",\"min\",\"\",\"\")",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "options": {
+        "renderMode": "data",
+        "editor": {
+          "language": "html"
+        },
+        "editors": [],
+        "externalStyles": [],
+        "contentPartials": [],
+        "wrap": true,
+        "status": "",
+        "content": "<div class=\"np-root\">\n{{summary}}\n<div class=\"np-grid\">\n{{#nodeCards}}\n<div class=\"np-card\">\n<div class=\"np-card-h\">\n<span class=\"np-dot\"></span>\n<span class=\"np-node\">{{node}}</span>\n<span class=\"np-badge\">{{count}}</span>\n</div>\n<div class=\"np-pods\">\n{{#each pods}}<span class=\"np-pod np-s-{{this.state}}\" title=\"{{this.name}} · {{this.label}}\"></span>{{/each}}\n{{#unless count}}<span class=\"np-none\">파드 없음</span>{{/unless}}\n</div>\n<div class=\"np-foot\">\n<div class=\"np-bar\"><i style=\"width:{{bar}}%\"></i></div>\n<span class=\"np-share\">{{share}}%</span>\n</div>\n</div>\n{{/nodeCards}}\n</div>\n<div class=\"np-legend\">\n<span><i class=\"np-pod np-s-running\"></i>Running</span>\n<span><i class=\"np-pod np-s-notready\"></i>Not ready</span>\n<span><i class=\"np-pod np-s-pending\"></i>Pending</span>\n<span><i class=\"np-pod np-s-failed\"></i>Failed</span>\n</div>\n</div>\n",
+        "helpers": "// renderMode=data 이므로 context.data.data 는 \"쿼리별 행 배열\"의 배열이다.\n// 순서에 의존하지 않고 각 프레임의 필드로 정체를 판별한다.\nvar raw = context.data || {};\nvar frames = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nif (frames.length && !Array.isArray(frames[0])) { frames = [frames]; }\n\n// 쿼리가 여러 개면 값 컬럼 이름이 Value 가 아니라 \"Value #A\" 처럼 refId 로 구분된다.\n// 이름을 가정하지 않고 Value 로 시작하는 키를 찾는다.\nfunction num(r) {\n  if (r == null) return NaN;\n  if (r.Value !== undefined) return Number(r.Value);\n  for (var k in r) { if (k.indexOf('Value') === 0) return Number(r[k]); }\n  return NaN;\n}\n\nvar podRows = [], statusRows = [], hpaRows = [];\nframes.forEach(function (rows) {\n  if (!Array.isArray(rows) || !rows.length) return;\n  var f = rows[0];\n  if (f.node !== undefined) { podRows = rows; }\n  else if (f.kind === 'phase' || f.kind === 'ready') { statusRows = rows; }\n  else if (f.kind !== undefined) { hpaRows = rows; }\n});\n\nvar phase = {}, ready = {};\nstatusRows.forEach(function (r) {\n  if (!r.pod) return;\n  if (r.kind === 'phase') { phase[r.pod] = r.phase || 'Unknown'; }\n  if (r.kind === 'ready') { ready[r.pod] = num(r) === 1; }\n});\n\nvar hpa = {};\nhpaRows.forEach(function (r) {\n  var v = num(r);\n  if (r.kind && !isNaN(v)) hpa[r.kind] = v;\n});\n\nvar groups = {};\npodRows.forEach(function (r) {\n  if (!r || !r.node) return;\n  if (!groups[r.node]) groups[r.node] = [];\n  if (r.pod) groups[r.node].push(r.pod);\n});\nvar nodeNames = Object.keys(groups).sort();\nvar total = nodeNames.reduce(function (a, n) { return a + groups[n].length; }, 0);\n\nfunction stateOf(pod) {\n  var p = phase[pod];\n  if (p === 'Running') { return ready[pod] ? 'running' : 'notready'; }\n  if (p === 'Pending') return 'pending';\n  if (p === 'Failed') return 'failed';\n  if (p === 'Succeeded') return 'succeeded';\n  return 'unknown';\n}\nvar LABEL = { running: 'Running', notready: 'Running (not ready)', pending: 'Pending',\n              failed: 'Failed', succeeded: 'Succeeded', unknown: 'Unknown' };\n\nfunction fmt(v) { return (v === undefined || isNaN(v)) ? '–' : v; }\n\ncontext.handlebars.registerHelper('summary', function () {\n  var desired = hpa.desired;\n  var trend = 'stable', arrow = '=', word = '안정';\n  if (desired !== undefined) {\n    if (desired > total) { trend = 'up'; arrow = '▲'; word = '확장 중'; }\n    else if (desired < total) { trend = 'down'; arrow = '▼'; word = '축소 중'; }\n  }\n  return new context.handlebars.SafeString(\n    '<div class=\"np-sum\">' +\n      '<div class=\"np-stat\"><span class=\"np-k\">실제 파드</span><span class=\"np-v\">' + total + '</span></div>' +\n      '<div class=\"np-arrow np-' + trend + '\">' + arrow + '</div>' +\n      '<div class=\"np-stat\"><span class=\"np-k\">HPA 가 원한 수</span><span class=\"np-v\">' + fmt(desired) + '</span></div>' +\n      '<div class=\"np-trend np-' + trend + '\">' + word + '</div>' +\n      '<div class=\"np-nodes-k\">노드 ' + nodeNames.length + '대</div>' +\n    '</div>');\n});\n\ncontext.handlebars.registerHelper('nodeCards', function (options) {\n  if (!nodeNames.length) {\n    var keys = podRows.length ? Object.keys(podRows[0]) : [];\n    return new context.handlebars.SafeString(\n      '<div class=\"np-empty\">노드를 찾지 못했습니다. frames=' + frames.length +\n      ' podRows=' + podRows.length + ' 필드=' + JSON.stringify(keys) + '</div>');\n  }\n  var maxOnNode = Math.max.apply(null, nodeNames.map(function (n) { return groups[n].length; })) || 1;\n  return nodeNames.map(function (node) {\n    var pods = groups[node].slice().sort().map(function (p) {\n      var st = stateOf(p);\n      return { name: p, state: st, label: LABEL[st] };\n    });\n    return options.fn({\n      node: node, pods: pods, count: pods.length,\n      share: Math.round((pods.length / (total || 1)) * 100),\n      bar: Math.round((pods.length / maxOnNode) * 100)\n    });\n  }).join('');\n});\n",
+        "styles": ".np-root { display: flex; flex-direction: column; gap: 10px; height: 100%; padding: 2px; font-feature-settings: \"tnum\"; }\n\n/* ── 요약 바 ────────────────────────────────────────── */\n.np-sum { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;\n  padding: 9px 13px; border-radius: 7px;\n  background: rgba(110,159,255,0.07); border: 1px solid rgba(110,159,255,0.20); }\n.np-stat { display: flex; align-items: baseline; gap: 7px; }\n.np-k { font-size: 11px; opacity: 0.62; }\n.np-v { font-size: 21px; font-weight: 700; line-height: 1; }\n.np-arrow { font-size: 13px; opacity: 0.75; }\n.np-trend { font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 10px; }\n.np-up    { color: #ffb357; } .np-trend.np-up    { background: rgba(255,179,87,0.16); }\n.np-down  { color: #6e9fff; } .np-trend.np-down  { background: rgba(110,159,255,0.16); }\n.np-stable{ color: #6ccf8e; } .np-trend.np-stable{ background: rgba(108,207,142,0.15); }\n.np-range, .np-nodes-k { font-size: 11px; opacity: 0.5; }\n.np-nodes-k { margin-left: auto; }\n\n/* ── 노드 카드: auto-fit 이라 노드가 늘면 자동으로 재배치 ── */\n.np-grid { display: grid; gap: 10px; flex: 1 1 auto;\n  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); align-content: start; }\n.np-card { display: flex; flex-direction: column; gap: 8px;\n  border: 1px solid rgba(204,204,220,0.16); border-radius: 8px; padding: 10px 11px;\n  background: rgba(204,204,220,0.035); }\n.np-card-h { display: flex; align-items: center; gap: 7px; }\n.np-dot { width: 7px; height: 7px; border-radius: 50%; background: #6ccf8e; flex: none; }\n.np-node { font-size: 12.5px; font-weight: 650; letter-spacing: 0.2px;\n  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.np-badge { margin-left: auto; font-size: 11px; font-weight: 600; padding: 1px 8px;\n  border-radius: 9px; background: rgba(204,204,220,0.14); }\n\n.np-pods { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;\n  flex: 1 1 auto; min-height: 62px; }\n.np-pod { width: 22px; height: 22px; border-radius: 5px; display: inline-block; }\n.np-s-running   { background: rgba(63,185,80,0.75); }\n.np-s-notready  { background: rgba(227,179,65,0.75); }\n.np-s-pending   { background: rgba(219,138,44,0.75); animation: npPulse 1.4s ease-in-out infinite; }\n.np-s-failed    { background: rgba(240,85,74,0.75); }\n.np-s-succeeded { background: rgba(110,159,255,0.75); }\n.np-s-unknown   { background: rgba(125,133,144,0.75); }\n@keyframes npPulse { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }\n.np-none { font-size: 11px; opacity: 0.38; align-self: center; }\n\n.np-foot { display: flex; align-items: center; gap: 8px; }\n.np-bar { flex: 1 1 auto; height: 3px; border-radius: 2px; background: rgba(204,204,220,0.13); overflow: hidden; }\n.np-bar i { display: block; height: 100%; border-radius: 2px; background: #3fb950; }\n.np-share { font-size: 10.5px; opacity: 0.5; min-width: 30px; text-align: right; }\n\n.np-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 10.5px; opacity: 0.55; padding-left: 2px; }\n.np-legend span { display: flex; align-items: center; gap: 5px; }\n.np-legend i { width: 12px; height: 12px; border-radius: 3px; }\n.np-empty { font-size: 11px; opacity: 0.6; }\n",
+        "defaultContent": "데이터 없음"
+      }
     }
   ]
 }
