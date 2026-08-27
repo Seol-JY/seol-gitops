@@ -11,14 +11,14 @@ dns01RecursiveNameserversOnly: true
 resources:
   requests:
     cpu: 10m
-    memory: 64Mi
+    memory: 32Mi
   limits:
     memory: 256Mi
 webhook:
   resources:
     requests:
       cpu: 10m
-      memory: 32Mi
+      memory: 16Mi
     limits:
       memory: 128Mi
 cainjector:
