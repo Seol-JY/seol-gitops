@@ -89,8 +89,8 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "준비된 파드",
-      "description": "Ready 조건이 true 인 파드만 센다. 종료 중인 파드는 phase 가 Running 으로 남으므로 phase 대신 Ready 를 쓴다. 네임스페이스 전체를 세므로 HPA 드롭다운 선택과 무관하다",
+      "title": "전체 준비된 파드",
+      "description": "네임스페이스 전체 Ready 파드 수, 앱 + DB + 캐시",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -136,11 +136,67 @@
           "decimals": 0,
           "color": {
             "mode": "fixed",
-            "fixedColor": "green"
+            "fixedColor": "text"
           }
         },
         "overrides": []
       }
+    },
+    {
+      "id": 18,
+      "type": "stat",
+      "title": "앱 파드 (HPA 대상)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "kube_deployment_status_replicas_ready{namespace=\"$namespace\"} and on(namespace, deployment) label_replace(kube_horizontalpodautoscaler_info{namespace=\"$namespace\", horizontalpodautoscaler=\"$hpa\"}, \"deployment\", \"$1\", \"scaletargetref_name\", \"(.+)\")",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "description": "HPA 대상 Deployment 의 Ready 파드 수"
     },
     {
       "id": 2,
@@ -153,7 +209,7 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 4,
+        "x": 8,
         "y": 0
       },
       "targets": [
@@ -195,7 +251,8 @@
           }
         },
         "overrides": []
-      }
+      },
+      "description": "HPA 가 원하는 파드 수, 허용 범위는 하단 배치도 참고"
     },
     {
       "id": 3,
@@ -207,8 +264,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 5,
-        "x": 8,
+        "w": 4,
+        "x": 12,
         "y": 0
       },
       "targets": [
@@ -264,7 +321,7 @@
         },
         "overrides": []
       },
-      "description": "HPA 가 실제로 보고 판단하는 값. requests 가 5m 이면 50% 는 2.5m 이다"
+      "description": "HPA 가 판단 기준으로 쓰는 값, requests 대비 비율"
     },
     {
       "id": 4,
@@ -277,7 +334,7 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 13,
+        "x": 16,
         "y": 0
       },
       "targets": [
@@ -288,7 +345,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(traefik_entrypoint_requests_total{entrypoint=\"websecure\"}[1m]))",
+          "expr": "sum(rate(traefik_service_requests_total{service=~\"$namespace-.*\"}[1m]))",
           "range": false,
           "instant": true
         }
@@ -319,7 +376,8 @@
           }
         },
         "overrides": []
-      }
+      },
+      "description": "이 네임스페이스 서비스로 라우팅된 요청만"
     },
     {
       "id": 5,
@@ -332,7 +390,7 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 17,
+        "x": 20,
         "y": 0
       },
       "targets": [
@@ -343,7 +401,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum(rate(traefik_entrypoint_request_duration_seconds_bucket{entrypoint=\"websecure\"}[2m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(traefik_service_request_duration_seconds_bucket{service=~\"$namespace-.*\"}[2m])) by (le))",
           "range": false,
           "instant": true
         }
@@ -374,59 +432,8 @@
           }
         },
         "overrides": []
-      }
-    },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "범위",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
       },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 21,
-        "y": 0
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "editorMode": "code",
-          "expr": "kube_horizontalpodautoscaler_spec_max_replicas{namespace=\"$namespace\", horizontalpodautoscaler=\"$hpa\"}",
-          "range": false,
-          "instant": true
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "area",
-        "textMode": "value",
-        "orientation": "auto",
-        "justifyMode": "auto",
-        "wideLayout": true,
-        "showPercentChange": false
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "description": "maxReplicas"
+      "description": "Traefik 버킷이 0.1·0.3·1.2·5.0 초 4개뿐, 95ms 는 100ms 미만이라는 뜻일 뿐"
     },
     {
       "id": 10,
@@ -619,7 +626,7 @@
           }
         ]
       },
-      "description": "확장은 원한 수가 먼저 뛰고 실제가 따라온다. 부하가 빠졌는데 원한 수가 내려오지 않는 구간이 축소 안정화 창(60초)이다"
+      "description": "원한 수가 먼저 뛰고 실제가 따라옴, 축소 안정화 창 60초"
     },
     {
       "id": 11,
@@ -765,7 +772,8 @@
             ]
           }
         ]
-      }
+      },
+      "description": "빨간 점선이 목표치"
     },
     {
       "id": 12,
@@ -789,7 +797,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(traefik_entrypoint_requests_total{entrypoint=\"websecure\"}[1m])) by (code)",
+          "expr": "sum(rate(traefik_service_requests_total{service=~\"$namespace-.*\"}[1m])) by (code)",
           "range": true,
           "legendFormat": "{{code}}"
         }
@@ -856,7 +864,7 @@
         },
         "overrides": []
       },
-      "description": "Traefik 의 websecure 엔트리포인트 기준. 502 는 스케일 아웃 중 파드가 준비되기 전 라우팅된 경우다"
+      "description": "서비스가 실제로 낸 응답"
     },
     {
       "id": 13,
@@ -880,7 +888,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum(rate(traefik_entrypoint_request_duration_seconds_bucket{entrypoint=\"websecure\"}[2m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(traefik_service_request_duration_seconds_bucket{service=~\"$namespace-.*\"}[2m])) by (le))",
           "range": true,
           "legendFormat": "p50"
         },
@@ -891,7 +899,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum(rate(traefik_entrypoint_request_duration_seconds_bucket{entrypoint=\"websecure\"}[2m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(traefik_service_request_duration_seconds_bucket{service=~\"$namespace-.*\"}[2m])) by (le))",
           "range": true,
           "legendFormat": "p95"
         },
@@ -902,7 +910,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum(rate(traefik_entrypoint_request_duration_seconds_bucket{entrypoint=\"websecure\"}[2m])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(traefik_service_request_duration_seconds_bucket{service=~\"$namespace-.*\"}[2m])) by (le))",
           "range": true,
           "legendFormat": "p99"
         }
@@ -968,7 +976,8 @@
           }
         },
         "overrides": []
-      }
+      },
+      "description": "Traefik 버킷이 0.1·0.3·1.2·5.0 초 4개뿐, 95ms 는 100ms 미만이라는 뜻일 뿐"
     },
     {
       "id": 14,
@@ -1059,7 +1068,7 @@
         },
         "overrides": []
       },
-      "description": "파드가 늘어날 때 부하가 갈라지는 모습이 보인다"
+      "description": "파드가 늘 때 부하가 갈라지는 모습"
     },
     {
       "id": 15,
@@ -1150,19 +1159,19 @@
         },
         "overrides": []
       },
-      "description": "k3s 는 control-plane 에 taint 를 걸지 않아 cp-1 에도 앱 파드가 뜬다"
+      "description": "k3s 는 cp-1 에 taint 가 없어 앱 파드도 뜬다"
     },
     {
       "id": 17,
       "type": "marcusolsson-dynamictext-panel",
       "title": "노드별 파드 배치",
-      "description": "사각형 1개 = 파드 1개, 색은 파드 상태. 노드가 늘어나면 카드가 자동으로 재배치된다.",
+      "description": "칩 하나 = 파드 하나, 모양은 워크로드 종류 / 색은 상태 / 왼쪽 파란 선은 HPA 대상",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 10,
+        "h": 8,
         "w": 24,
         "x": 0,
         "y": 29
@@ -1203,6 +1212,18 @@
           "instant": true,
           "range": false,
           "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "kube_horizontalpodautoscaler_info{namespace=\"$namespace\", horizontalpodautoscaler=\"$hpa\"}",
+          "instant": true,
+          "range": false,
+          "format": "table"
         }
       ],
       "options": {
@@ -1215,9 +1236,9 @@
         "contentPartials": [],
         "wrap": true,
         "status": "",
-        "content": "<div class=\"np-root\">\n{{summary}}\n<div class=\"np-grid\">\n{{#nodeCards}}\n<div class=\"np-card\">\n<div class=\"np-card-h\">\n<span class=\"np-dot\"></span>\n<span class=\"np-node\">{{node}}</span>\n<span class=\"np-badge\">{{count}}</span>\n</div>\n<div class=\"np-pods\">\n{{#each pods}}<span class=\"np-pod np-s-{{this.state}}\" title=\"{{this.name}} · {{this.label}}\"></span>{{/each}}\n{{#unless count}}<span class=\"np-none\">파드 없음</span>{{/unless}}\n</div>\n<div class=\"np-foot\">\n<div class=\"np-bar\"><i style=\"width:{{bar}}%\"></i></div>\n<span class=\"np-share\">{{share}}%</span>\n</div>\n</div>\n{{/nodeCards}}\n</div>\n<div class=\"np-legend\">\n<span><i class=\"np-pod np-s-running\"></i>Running</span>\n<span><i class=\"np-pod np-s-notready\"></i>Not ready</span>\n<span><i class=\"np-pod np-s-pending\"></i>Pending</span>\n<span><i class=\"np-pod np-s-failed\"></i>Failed</span>\n</div>\n</div>\n",
-        "helpers": "// renderMode=data 이므로 context.data.data 는 \"쿼리별 행 배열\"의 배열이다.\n// 순서에 의존하지 않고 각 프레임의 필드로 정체를 판별한다.\nvar raw = context.data || {};\nvar frames = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nif (frames.length && !Array.isArray(frames[0])) { frames = [frames]; }\n\n// 쿼리가 여러 개면 값 컬럼 이름이 Value 가 아니라 \"Value #A\" 처럼 refId 로 구분된다.\n// 이름을 가정하지 않고 Value 로 시작하는 키를 찾는다.\nfunction num(r) {\n  if (r == null) return NaN;\n  if (r.Value !== undefined) return Number(r.Value);\n  for (var k in r) { if (k.indexOf('Value') === 0) return Number(r[k]); }\n  return NaN;\n}\n\nvar podRows = [], statusRows = [], hpaRows = [];\nframes.forEach(function (rows) {\n  if (!Array.isArray(rows) || !rows.length) return;\n  var f = rows[0];\n  if (f.node !== undefined) { podRows = rows; }\n  else if (f.kind === 'phase' || f.kind === 'ready') { statusRows = rows; }\n  else if (f.kind !== undefined) { hpaRows = rows; }\n});\n\nvar phase = {}, ready = {};\nstatusRows.forEach(function (r) {\n  if (!r.pod) return;\n  if (r.kind === 'phase') { phase[r.pod] = r.phase || 'Unknown'; }\n  if (r.kind === 'ready') { ready[r.pod] = num(r) === 1; }\n});\n\nvar hpa = {};\nhpaRows.forEach(function (r) {\n  var v = num(r);\n  if (r.kind && !isNaN(v)) hpa[r.kind] = v;\n});\n\nvar groups = {};\npodRows.forEach(function (r) {\n  if (!r || !r.node) return;\n  if (!groups[r.node]) groups[r.node] = [];\n  if (r.pod) groups[r.node].push(r.pod);\n});\nvar nodeNames = Object.keys(groups).sort();\nvar total = nodeNames.reduce(function (a, n) { return a + groups[n].length; }, 0);\n\nfunction stateOf(pod) {\n  var p = phase[pod];\n  if (p === 'Running') { return ready[pod] ? 'running' : 'notready'; }\n  if (p === 'Pending') return 'pending';\n  if (p === 'Failed') return 'failed';\n  if (p === 'Succeeded') return 'succeeded';\n  return 'unknown';\n}\nvar LABEL = { running: 'Running', notready: 'Running (not ready)', pending: 'Pending',\n              failed: 'Failed', succeeded: 'Succeeded', unknown: 'Unknown' };\n\nfunction fmt(v) { return (v === undefined || isNaN(v)) ? '–' : v; }\n\ncontext.handlebars.registerHelper('summary', function () {\n  var desired = hpa.desired;\n  var trend = 'stable', arrow = '=', word = '안정';\n  if (desired !== undefined) {\n    if (desired > total) { trend = 'up'; arrow = '▲'; word = '확장 중'; }\n    else if (desired < total) { trend = 'down'; arrow = '▼'; word = '축소 중'; }\n  }\n  return new context.handlebars.SafeString(\n    '<div class=\"np-sum\">' +\n      '<div class=\"np-stat\"><span class=\"np-k\">실제 파드</span><span class=\"np-v\">' + total + '</span></div>' +\n      '<div class=\"np-arrow np-' + trend + '\">' + arrow + '</div>' +\n      '<div class=\"np-stat\"><span class=\"np-k\">HPA 가 원한 수</span><span class=\"np-v\">' + fmt(desired) + '</span></div>' +\n      '<div class=\"np-trend np-' + trend + '\">' + word + '</div>' +\n      '<div class=\"np-nodes-k\">노드 ' + nodeNames.length + '대</div>' +\n    '</div>');\n});\n\ncontext.handlebars.registerHelper('nodeCards', function (options) {\n  if (!nodeNames.length) {\n    var keys = podRows.length ? Object.keys(podRows[0]) : [];\n    return new context.handlebars.SafeString(\n      '<div class=\"np-empty\">노드를 찾지 못했습니다. frames=' + frames.length +\n      ' podRows=' + podRows.length + ' 필드=' + JSON.stringify(keys) + '</div>');\n  }\n  var maxOnNode = Math.max.apply(null, nodeNames.map(function (n) { return groups[n].length; })) || 1;\n  return nodeNames.map(function (node) {\n    var pods = groups[node].slice().sort().map(function (p) {\n      var st = stateOf(p);\n      return { name: p, state: st, label: LABEL[st] };\n    });\n    return options.fn({\n      node: node, pods: pods, count: pods.length,\n      share: Math.round((pods.length / (total || 1)) * 100),\n      bar: Math.round((pods.length / maxOnNode) * 100)\n    });\n  }).join('');\n});\n",
-        "styles": ".np-root { display: flex; flex-direction: column; gap: 10px; height: 100%; padding: 2px; font-feature-settings: \"tnum\"; }\n\n/* ── 요약 바 ────────────────────────────────────────── */\n.np-sum { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;\n  padding: 9px 13px; border-radius: 7px;\n  background: rgba(110,159,255,0.07); border: 1px solid rgba(110,159,255,0.20); }\n.np-stat { display: flex; align-items: baseline; gap: 7px; }\n.np-k { font-size: 11px; opacity: 0.62; }\n.np-v { font-size: 21px; font-weight: 700; line-height: 1; }\n.np-arrow { font-size: 13px; opacity: 0.75; }\n.np-trend { font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 10px; }\n.np-up    { color: #ffb357; } .np-trend.np-up    { background: rgba(255,179,87,0.16); }\n.np-down  { color: #6e9fff; } .np-trend.np-down  { background: rgba(110,159,255,0.16); }\n.np-stable{ color: #6ccf8e; } .np-trend.np-stable{ background: rgba(108,207,142,0.15); }\n.np-range, .np-nodes-k { font-size: 11px; opacity: 0.5; }\n.np-nodes-k { margin-left: auto; }\n\n/* ── 노드 카드: auto-fit 이라 노드가 늘면 자동으로 재배치 ── */\n.np-grid { display: grid; gap: 10px; flex: 1 1 auto;\n  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); align-content: start; }\n.np-card { display: flex; flex-direction: column; gap: 8px;\n  border: 1px solid rgba(204,204,220,0.16); border-radius: 8px; padding: 10px 11px;\n  background: rgba(204,204,220,0.035); }\n.np-card-h { display: flex; align-items: center; gap: 7px; }\n.np-dot { width: 7px; height: 7px; border-radius: 50%; background: #6ccf8e; flex: none; }\n.np-node { font-size: 12.5px; font-weight: 650; letter-spacing: 0.2px;\n  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.np-badge { margin-left: auto; font-size: 11px; font-weight: 600; padding: 1px 8px;\n  border-radius: 9px; background: rgba(204,204,220,0.14); }\n\n.np-pods { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;\n  flex: 1 1 auto; min-height: 62px; }\n.np-pod { width: 22px; height: 22px; border-radius: 5px; display: inline-block; }\n.np-s-running   { background: rgba(63,185,80,0.75); }\n.np-s-notready  { background: rgba(227,179,65,0.75); }\n.np-s-pending   { background: rgba(219,138,44,0.75); animation: npPulse 1.4s ease-in-out infinite; }\n.np-s-failed    { background: rgba(240,85,74,0.75); }\n.np-s-succeeded { background: rgba(110,159,255,0.75); }\n.np-s-unknown   { background: rgba(125,133,144,0.75); }\n@keyframes npPulse { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }\n.np-none { font-size: 11px; opacity: 0.38; align-self: center; }\n\n.np-foot { display: flex; align-items: center; gap: 8px; }\n.np-bar { flex: 1 1 auto; height: 3px; border-radius: 2px; background: rgba(204,204,220,0.13); overflow: hidden; }\n.np-bar i { display: block; height: 100%; border-radius: 2px; background: #3fb950; }\n.np-share { font-size: 10.5px; opacity: 0.5; min-width: 30px; text-align: right; }\n\n.np-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 10.5px; opacity: 0.55; padding-left: 2px; }\n.np-legend span { display: flex; align-items: center; gap: 5px; }\n.np-legend i { width: 12px; height: 12px; border-radius: 3px; }\n.np-empty { font-size: 11px; opacity: 0.6; }\n",
+        "content": "<div class=\"np-root\">\n{{summary}}\n<div class=\"np-grid\">\n{{#nodeCards}}\n<div class=\"np-card\">\n<div class=\"np-card-h\">\n<span class=\"np-dot\"></span>\n<span class=\"np-node\">{{node}}</span>\n<span class=\"np-badge\">{{count}}</span>\n</div>\n<div class=\"np-pods\">\n{{#each pods}}<span class=\"np-pod np-k-{{this.kind}}{{#if this.target}} is-target{{/if}}\" title=\"{{this.name}} · {{this.stateLabel}} · {{this.kindLabel}}/{{this.workload}}\"><i class=\"np-ico k-{{this.kind}} s-{{this.state}}\"></i><b class=\"np-w\">{{this.workload}}</b>{{#if this.suffix}}<span class=\"np-sfx\">{{this.suffix}}</span>{{/if}}</span>{{/each}}\n{{#unless count}}<span class=\"np-none\">파드 없음</span>{{/unless}}\n</div>\n<div class=\"np-foot\">\n<div class=\"np-bar\"><i style=\"width:{{bar}}%\"></i></div>\n<span class=\"np-share\">{{share}}%</span>\n</div>\n</div>\n{{/nodeCards}}\n</div>\n<div class=\"np-legend\">\n<span><i class=\"np-ico k-app s-running\"></i>Deployment</span>\n<span><i class=\"np-ico k-stateful s-running\"></i>StatefulSet</span>\n<span><i class=\"np-ico k-daemon s-running\"></i>DaemonSet</span>\n<span class=\"np-sep\"></span>\n<span><i class=\"np-ico k-app s-running\"></i>Running</span>\n<span><i class=\"np-ico k-app s-notready\"></i>Not ready</span>\n<span><i class=\"np-ico k-app s-pending\"></i>Pending</span>\n<span><i class=\"np-ico k-app s-failed\"></i>Failed</span>\n<span class=\"np-sep\"></span>\n<span><i class=\"np-tgt\"></i>HPA 대상</span>\n</div>\n</div>\n",
+        "helpers": "// renderMode=data 이므로 context.data.data 는 \"쿼리별 행 배열\"의 배열이다.\n// 순서에 의존하지 않고 각 프레임의 필드로 정체를 판별한다.\nvar raw = context.data || {};\nvar frames = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nif (frames.length && !Array.isArray(frames[0])) { frames = [frames]; }\n\n// 쿼리가 여러 개면 값 컬럼 이름이 Value 가 아니라 \"Value #A\" 처럼 refId 로 구분된다.\nfunction num(r) {\n  if (r == null) return NaN;\n  if (r.Value !== undefined) return Number(r.Value);\n  for (var k in r) { if (k.indexOf('Value') === 0) return Number(r[k]); }\n  return NaN;\n}\n\n// scaletargetref 검사가 먼저다. kube_horizontalpodautoscaler_info 에도 pod 라벨이 붙어 온다\nvar podRows = [], statusRows = [], hpaRows = [], infoRows = [];\nframes.forEach(function (rows) {\n  if (!Array.isArray(rows) || !rows.length) return;\n  var f = rows[0];\n  if (f.scaletargetref_name !== undefined) { infoRows = rows; }\n  else if (f.node !== undefined) { podRows = rows; }\n  else if (f.kind === 'phase' || f.kind === 'ready') { statusRows = rows; }\n  else if (f.kind !== undefined) { hpaRows = rows; }\n});\n\nvar phase = {}, ready = {};\nstatusRows.forEach(function (r) {\n  if (!r.pod) return;\n  if (r.kind === 'phase') { phase[r.pod] = r.phase || 'Unknown'; }\n  if (r.kind === 'ready') { ready[r.pod] = num(r) === 1; }\n});\n\nvar hpa = {};\nhpaRows.forEach(function (r) {\n  var v = num(r);\n  if (r.kind && !isNaN(v)) hpa[r.kind] = v;\n});\n\n// HPA 가 붙잡은 워크로드 이름. 대시보드에 앱 이름을 박지 않기 위해 메트릭에서 읽는다\nvar targetWorkload = null;\ninfoRows.forEach(function (r) { if (r.scaletargetref_name) targetWorkload = r.scaletargetref_name; });\n\nvar KIND_OF = { ReplicaSet: 'app', Deployment: 'app', StatefulSet: 'stateful',\n                DaemonSet: 'daemon', Job: 'job', CronJob: 'job' };\nvar KIND_LABEL = { app: 'Deployment', stateful: 'StatefulSet', daemon: 'DaemonSet',\n                   job: 'Job', bare: '단독 파드' };\nvar STATE_LABEL = { running: 'Running', notready: 'Running (not ready)', pending: 'Pending',\n                    failed: 'Failed', succeeded: 'Succeeded', unknown: 'Unknown' };\nvar KIND_ORDER = { app: 0, stateful: 1, daemon: 2, job: 3, bare: 4 };\n\nfunction stateOf(pod) {\n  var p = phase[pod];\n  if (p === 'Running') { return ready[pod] ? 'running' : 'notready'; }\n  if (p === 'Pending') return 'pending';\n  if (p === 'Failed') return 'failed';\n  if (p === 'Succeeded') return 'succeeded';\n  return 'unknown';\n}\n\n// ReplicaSet 이름의 마지막 -해시 를 떼면 Deployment 이름이다.\n// 꼬리표는 파드 이름에서 소유자 접두어를 지운 나머지 (StatefulSet 은 서수, Deployment 는 랜덤 조각)\nfunction podOf(r) {\n  var owner = r.created_by_name || '';\n  var ck = r.created_by_kind || '';\n  var kind = KIND_OF[ck] || 'bare';\n  var workload = (ck === 'ReplicaSet') ? owner.replace(/-[^-]+$/, '') : owner;\n  if (!workload) workload = r.pod;\n  var suffix = '';\n  [owner, workload].forEach(function (base) {\n    if (suffix || !base || r.pod.indexOf(base) !== 0) return;\n    suffix = r.pod.slice(base.length).replace(/^-/, '');\n  });\n  var st = stateOf(r.pod);\n  return {\n    name: r.pod, kind: kind, kindLabel: KIND_LABEL[kind], workload: workload,\n    suffix: suffix, state: st, stateLabel: STATE_LABEL[st],\n    target: (kind === 'app' && targetWorkload && workload === targetWorkload) ? true : false\n  };\n}\n\nvar groups = {};\npodRows.forEach(function (r) {\n  if (!r || !r.node) return;\n  if (!groups[r.node]) groups[r.node] = [];\n  if (r.pod) groups[r.node].push(podOf(r));\n});\n\nvar nodeNames = Object.keys(groups).sort();\nvar total = 0, appTotal = 0;\nnodeNames.forEach(function (n) {\n  groups[n].sort(function (a, b) {\n    var d = KIND_ORDER[a.kind] - KIND_ORDER[b.kind];\n    return d !== 0 ? d : a.name.localeCompare(b.name);\n  });\n  total += groups[n].length;\n  appTotal += groups[n].filter(function (p) { return p.target; }).length;\n});\n\nfunction fmt(v) { return (v === undefined || isNaN(v)) ? '–' : v; }\n\ncontext.handlebars.registerHelper('summary', function () {\n  var desired = hpa.desired;\n  var trend = 'stable', arrow = '=', word = '안정';\n  // HPA 대상 파드끼리 비교한다. 전체 파드와 견주면 DB·캐시 때문에 항상 축소 중으로 보인다\n  if (desired !== undefined) {\n    if (desired > appTotal) { trend = 'up'; arrow = '▲'; word = '확장 중'; }\n    else if (desired < appTotal) { trend = 'down'; arrow = '▼'; word = '축소 중'; }\n  }\n  var range = (hpa.min !== undefined && hpa.max !== undefined)\n    ? '<span>허용 ' + hpa.min + ' ~ ' + hpa.max + '</span>' : '';\n  return new context.handlebars.SafeString(\n    '<div class=\"np-sum\">' +\n      '<div class=\"np-stat\"><span class=\"np-k\">앱 파드</span><span class=\"np-v\">' + appTotal + '</span></div>' +\n      '<div class=\"np-arrow np-' + trend + '\">' + arrow + '</div>' +\n      '<div class=\"np-stat\"><span class=\"np-k\">HPA 가 원한 수</span><span class=\"np-v\">' + fmt(desired) + '</span></div>' +\n      '<div class=\"np-trend np-' + trend + '\">' + word + '</div>' +\n      '<div class=\"np-meta\">' + range +\n        '<span>전체 파드 ' + total + '</span><span>노드 ' + nodeNames.length + '대</span></div>' +\n    '</div>');\n});\n\ncontext.handlebars.registerHelper('nodeCards', function (options) {\n  if (!nodeNames.length) {\n    var keys = podRows.length ? Object.keys(podRows[0]) : [];\n    return new context.handlebars.SafeString(\n      '<div class=\"np-empty\">노드를 찾지 못했습니다. frames=' + frames.length +\n      ' podRows=' + podRows.length + ' 필드=' + JSON.stringify(keys) + '</div>');\n  }\n  var maxOnNode = Math.max.apply(null, nodeNames.map(function (n) { return groups[n].length; })) || 1;\n  return nodeNames.map(function (node) {\n    var pods = groups[node];\n    return options.fn({\n      node: node, pods: pods, count: pods.length,\n      share: Math.round((pods.length / (total || 1)) * 100),\n      bar: Math.round((pods.length / maxOnNode) * 100)\n    });\n  }).join('');\n});\n",
+        "styles": ".np-root { display: flex; flex-direction: column; gap: 10px; height: 100%; padding: 2px; font-feature-settings: \"tnum\"; }\n\n/* ── 요약 바: 앱 파드끼리 비교하고 전체 개수는 오른쪽 메타로 보낸다 ── */\n.np-sum { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;\n  padding: 9px 13px; border-radius: 7px;\n  background: rgba(110,159,255,0.07); border: 1px solid rgba(110,159,255,0.20); }\n.np-stat { display: flex; align-items: baseline; gap: 7px; }\n.np-k { font-size: 11px; opacity: 0.62; }\n.np-v { font-size: 21px; font-weight: 700; line-height: 1; }\n.np-arrow { font-size: 13px; opacity: 0.75; }\n.np-trend { font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 10px; }\n.np-up    { color: #ffb357; } .np-trend.np-up    { background: rgba(255,179,87,0.16); }\n.np-down  { color: #6e9fff; } .np-trend.np-down  { background: rgba(110,159,255,0.16); }\n.np-stable{ color: #6ccf8e; } .np-trend.np-stable{ background: rgba(108,207,142,0.15); }\n.np-meta { margin-left: auto; font-size: 11px; opacity: 0.5; display: flex; gap: 10px; flex-wrap: wrap; }\n\n/* ── 노드 카드: auto-fit 이라 노드가 늘면 자동으로 재배치 ── */\n.np-grid { display: grid; gap: 10px; flex: 1 1 auto;\n  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); align-content: start; }\n.np-card { display: flex; flex-direction: column; gap: 8px;\n  border: 1px solid rgba(204,204,220,0.16); border-radius: 8px; padding: 10px 11px;\n  background: rgba(204,204,220,0.035); }\n.np-card-h { display: flex; align-items: center; gap: 7px; }\n.np-dot { width: 7px; height: 7px; border-radius: 50%; background: #6ccf8e; flex: none; }\n.np-node { font-size: 12.5px; font-weight: 650; letter-spacing: 0.2px;\n  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.np-badge { margin-left: auto; font-size: 11px; font-weight: 600; padding: 1px 8px;\n  border-radius: 9px; background: rgba(204,204,220,0.14); }\n\n/* ── 파드 칩: 모양=워크로드 종류, 색=상태, 왼쪽 선=HPA 대상 ── */\n.np-pods { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));\n  gap: 5px; align-content: flex-start; flex: 1 1 auto; min-height: 62px; }\n.np-pod { display: flex; align-items: center; gap: 6px; min-width: 0;\n  padding: 4px 8px; border-radius: 6px; font-size: 11px; line-height: 1.25;\n  border: 1px solid rgba(204,204,220,0.12); border-left: 3px solid transparent;\n  background: rgba(204,204,220,0.045); }\n.np-pod.np-k-stateful { background: rgba(163,113,247,0.07); border-color: rgba(163,113,247,0.22); }\n.np-pod.is-target { border-left-color: #6e9fff; border-color: rgba(110,159,255,0.28);\n  background: rgba(110,159,255,0.09); }\n.np-w { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.np-sfx { margin-left: auto; font-size: 10px; opacity: 0.45; flex: none;\n  font-family: ui-monospace, SFMono-Regular, monospace; }\n\n.np-ico { width: 9px; height: 9px; flex: none; }\n.np-ico.k-app { border-radius: 50%; }\n.np-ico.k-stateful { border-radius: 2px; }\n.np-ico.k-daemon { border-radius: 1px; width: 8px; height: 8px; transform: rotate(45deg); }\n.np-ico.k-job { border-radius: 2px; width: 7px; height: 7px; }\n.np-ico.k-bare { border-radius: 50%; background: transparent !important; box-shadow: inset 0 0 0 1.5px #7d8590; }\n.np-ico.s-running   { background: #3fb950; }\n.np-ico.s-notready  { background: #e3b341; }\n.np-ico.s-pending   { background: #db8a2c; animation: npPulse 1.4s ease-in-out infinite; }\n.np-ico.s-failed    { background: #f0554a; }\n.np-ico.s-succeeded { background: #6e9fff; }\n.np-ico.s-unknown   { background: #7d8590; }\n@keyframes npPulse { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }\n@media (prefers-reduced-motion: reduce) { .np-ico.s-pending { animation: none; } }\n.np-none { font-size: 11px; opacity: 0.38; align-self: center; grid-column: 1 / -1; }\n\n.np-foot { display: flex; align-items: center; gap: 8px; }\n.np-bar { flex: 1 1 auto; height: 3px; border-radius: 2px; background: rgba(204,204,220,0.13); overflow: hidden; }\n.np-bar i { display: block; height: 100%; border-radius: 2px; background: #3fb950; }\n.np-share { font-size: 10.5px; opacity: 0.5; min-width: 30px; text-align: right; }\n\n.np-legend { display: flex; gap: 7px 16px; flex-wrap: wrap; font-size: 10.5px;\n  opacity: 0.62; padding-left: 2px; align-items: center; }\n.np-legend span { display: flex; align-items: center; gap: 5px; }\n.np-sep { width: 1px; height: 11px; background: rgba(204,204,220,0.18); }\n.np-tgt { width: 3px; height: 11px; border-radius: 1px; background: #6e9fff; }\n.np-empty { font-size: 11px; opacity: 0.6; }\n",
         "defaultContent": "데이터 없음"
       }
     }
