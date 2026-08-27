@@ -7,8 +7,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: gitops-smoke
-  minReplicas: 1
-  maxReplicas: 10  # 워커 2대(각 1 OCPU)에 request 5m 이라 여유는 충분하고, 폭주 시 상한 역할만 한다
+  minReplicas: 5   # HPA 가 부하를 감지하는 데 20초가 걸려 그 구간은 기존 파드만 버틴다
+  maxReplicas: 20  # 20 개 × request 20m = 400m 으로 4 코어 클러스터의 10%, 폭주 시 상한 역할만 한다
   metrics:
     - type: Resource
       resource:
