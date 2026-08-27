@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portfolio-chat
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: portfolio-chat
+spec:
+  # replicas 는 HPA 가 관리한다
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: portfolio-chat
+  template:
+    metadata:
+      labels:
+        app: portfolio-chat
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      # SSE 스트림 대기, 앱의 graceful shutdown 대기(75초)보다 길어야 함
+      terminationGracePeriodSeconds: 90
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: portfolio-chat
+      containers:
+        - name: backend
+          image: ghcr.io/seol-jy/portfolio-chat-backend
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 8081
+          envFrom:
+            - secretRef:
+                name: portfolio-chat-env
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: REDIS_HOST
+              value: redis
+            - name: ADMIN_LOGIN_ID
+              value: admin
+            - name: OPENAI_CHAT_MODEL
+              value: gpt-5.4
+            - name: OPENAI_EMBEDDING_MODEL
+              value: text-embedding-3-small
+            - name: INGESTION_BASE_URL
+              value: https://jinyeong.seol.pro
+            - name: INGESTION_SYNC_CRON
+              value: "0 0 * * * *"
+            - name: INGESTION_ENABLED
+              value: "true"
+            - name: CORS_ALLOWED_ORIGINS
+              value: https://jinyeong.seol.pro
+            - name: DAILY_INPUT_TOKEN_LIMIT
+              value: "1200000"
+            - name: DAILY_OUTPUT_TOKEN_LIMIT
+              value: "300000"
+            - name: SESSION_INPUT_TOKEN_LIMIT
+              value: "60000"
+            - name: SESSION_OUTPUT_TOKEN_LIMIT
+              value: "15000"
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: management
+            periodSeconds: 5
+            failureThreshold: 40  # 1 코어 노드에서 JVM + Flyway 부팅에 최대 200초를 준다
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: management
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: management
+            periodSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 200m
+              memory: 768Mi
+            limits:
+              memory: 1280Mi  # 이미지의 MaxRAMPercentage=60 이므로 힙 상한 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp  # readOnlyRootFilesystem 이라 JVM 임시 파일용 쓰기 공간이 필요하다
+      volumes:
+        - name: tmp
+          emptyDir: {}

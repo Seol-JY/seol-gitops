@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portfolio-chat
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts: [api-jinyeong.seol.pro]
+  rules:
+    - host: api-jinyeong.seol.pro
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: portfolio-chat
+                port:
+                  name: http

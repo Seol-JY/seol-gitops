@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  # headless 가 아니라 ClusterIP 로, 파드가 재생성되면 IP 가 바뀌는데 headless 면 JVM 의 DNS 캐시(기본 30초) 동안 죽은 IP 로 붙음, 파드별 DNS 는 쓰지 않으므로 손실 없음
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
