@@ -89,7 +89,8 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "실제 파드",
+      "title": "준비된 파드",
+      "description": "Ready 조건이 true 인 파드만 센다. 종료 중인 파드는 phase 가 Running 으로 남으므로 phase 대신 Ready 를 쓴다. 네임스페이스 전체를 세므로 HPA 드롭다운 선택과 무관하다",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -108,7 +109,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "count(kube_pod_info{namespace=\"$namespace\"})",
+          "expr": "count(kube_pod_status_ready{namespace=\"$namespace\", condition=\"true\"} == 1)",
           "range": false,
           "instant": true
         }
