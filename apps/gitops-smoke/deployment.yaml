@@ -5,6 +5,11 @@ metadata:
   labels:
     app: gitops-smoke
 spec:
+  # 퍼센트 기본값 25% 는 HPA 가 파드 수를 바꾸면 같이 커진다
+  strategy:
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: gitops-smoke
@@ -22,18 +27,25 @@ spec:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: ScheduleAnyway  # 노드 3대에 HPA 상한이 20 이라 분산보다 배치를 우선
+          matchLabelKeys: [pod-template-hash]  # 롤아웃 중 구버전 파드를 같이 세지 않는다
           labelSelector:
             matchLabels:
               app: gitops-smoke
       containers:
         - name: smoke
           image: ghcr.io/seol-jy/seol-gitops-smoke
+          imagePullPolicy: IfNotPresent  # 태그가 커밋 SHA 라 내용이 바뀌지 않는다
           ports:
             - name: http
               containerPort: 8080
+          # scratch 라 셸이 없어 sleep 액션. Traefik 이 Endpoints 에서 빼낼 시간을 번다
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /readyz
               port: http
           livenessProbe:
             httpGet:
