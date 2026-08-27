@@ -18,6 +18,13 @@ spec:
         runAsUser: 65534
         seccompProfile:
           type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway  # 노드 3대에 HPA 상한이 20 이라 분산보다 배치를 우선
+          labelSelector:
+            matchLabels:
+              app: gitops-smoke
       containers:
         - name: smoke
           image: ghcr.io/seol-jy/seol-gitops-smoke
