@@ -30,7 +30,7 @@ spec:
     ports:
       web:
         observability:
-          accessLogs: false  # web 은 308 리다이렉트와 /ping 헬스체크만 지나가므로 기록하지 않음
+          accessLogs: false  # web 은 리다이렉트와 /ping 헬스체크만 지나가므로 기록하지 않음
         http:
           redirections:
             entryPoint:

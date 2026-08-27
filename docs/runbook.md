@@ -136,19 +136,21 @@ rm cf.plain.yaml
 
 `infra/traefik/` 의 `HelmChartConfig` 가 k3s 내장 Traefik 의 차트 값만 덮어쓴다
 
-- `web`(80) 은 전량 `websecure`(443) 로 308 리다이렉트, priority 1000 은 앱 라우터(규칙 길이 기반, 보통 수십)보다 높게 잡은 값
+- `web`(80) 은 전량 `websecure`(443) 로 리다이렉트, priority 1000 은 앱 라우터(규칙 길이 기반, 보통 수십)보다 높게 잡은 값
+- 리다이렉트 응답 코드는 메서드에 따라 갈린다. GET 은 301, 그 외 메서드는 308 이다. `permanent: true` 가 본문 있는 메서드만 308 로 올려 메서드와 본문을 보존한다
 - `websecure` 응답에 `kube-system/hsts` Middleware 로 `max-age=31536000; includeSubDomains` 적용, `preload` 는 제거에 수개월 걸려 사용하지 않음
 - `/ping` 은 `IngressRoute` 로 web 엔트리포인트에 노출, priority 2000 으로 리다이렉트보다 높여 200 을 반환, NLB 헬스체크가 이 경로를 사용
 - `deployment.replicas: 2` 와 `topologySpreadConstraints` 로 서로 다른 노드에 배치, 노드 하드 장애 시 파드 재스케줄이 기본 300초 걸리는 것을 회피
 - `websecure` 의 `proxyProtocol.trustedIPs` 가 NLB 443 리스너의 PPv2 헤더를 신뢰, PROXY 헤더가 없는 연결은 그대로 처리하므로 노드 직접 접속도 계속 동작
 - 의존은 한 방향이다. 리스너 PPv2 를 켠 채 이 설정을 지우면 헤더 바이트가 TLS 핸드셰이크를 깨뜨리므로, 끌 때는 Traefik 쪽을 나중에 지움
-- `logs.access` 는 JSON 으로 켜두고 web 엔트리포인트는 `observability.accessLogs: false` 로 제외, 308 리다이렉트와 헬스체크가 로그를 채우지 않게 함
+- `logs.access` 는 JSON 으로 켜두고 web 엔트리포인트는 `observability.accessLogs: false` 로 제외, 리다이렉트와 헬스체크가 로그를 채우지 않게 함
 - `resources` 는 requests 50m/64Mi, limits 256Mi (실사용 18Mi). `podDisruptionBudget.minAvailable: 1` 로 노드 drain 이 두 파드를 동시에 내리지 못하게 함
 
 확인
 
 ```bash
-curl -sI http://<앱>.seol.pro/ | head -1              # HTTP/1.1 308
+curl -sI http://<앱>.seol.pro/ | head -1              # HTTP/1.1 308 (HEAD)
+curl -s -o /dev/null -D - http://<앱>.seol.pro/ | head -1   # HTTP/1.1 301 (GET, 브라우저가 받는 코드)
 curl -sI https://<앱>.seol.pro/ | grep -i strict      # max-age=31536000
 curl -s http://<LB 공인 IP>/ping                       # OK, 노드 공인 IP 는 NSG 로 차단됨
 kubectl -n kube-system get pods -l app.kubernetes.io/name=traefik -o wide

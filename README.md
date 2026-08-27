@@ -24,7 +24,7 @@ flowchart LR
       svclb3[svclb :80/:443]
       apps2[앱 파드]
     end
-    traefik[Traefik<br/>2 replica · 노드 분산<br/>TLS 종료 · HTTP 는 308]
+    traefik[Traefik<br/>2 replica · 노드 분산<br/>TLS 종료 · HTTP 는 301/308]
     cm[cert-manager]
     ss[Sealed Secrets]
     vm[VictoriaMetrics + Grafana<br/>worker-2 고정 · 보관 7일<br/>알림 없음]
@@ -49,7 +49,7 @@ flowchart LR
 - 파드 CIDR `10.42.0.0/16`, 서비스 CIDR `10.43.0.0/16`
 - k3s 기본 구성: SQLite, Traefik(Ingress), ServiceLB, local-path(기본 StorageClass), metrics-server. secrets-encryption 활성
 - 도메인 `seol.pro` (Cloudflare, DNS only). 앱별 A 레코드는 수동으로 추가한다.
-- `http` 요청은 Traefik 이 전량 308 로 `https` 로 보내고, 응답에 HSTS `max-age=31536000` 을 붙인다.
+- `http` 요청은 Traefik 이 전량 `https` 로 보내고(GET 은 301, 그 외 메서드는 308), 응답에 HSTS `max-age=31536000` 을 붙인다.
 - 앱 A 레코드는 NLB 공인 IP(`146.56.xxx.xxx`)를 가리킨다. 노드 80/443 은 NSG 로 NLB 만 허용하므로 노드 공인 IP 직접 접속은 막혀 있고, 진입점은 NLB 하나다.
 
 ## 레포 구조
