@@ -3,6 +3,9 @@ kind: Application
 metadata:
   name: root
   namespace: argocd
+  annotations:
+    # 자식 Application 의 diff 를 서버사이드 dry-run 으로 계산해 다른 필드 소유자가 쓴 값을 차이로 잡지 않음
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
 spec:
   project: default
   source:
@@ -20,3 +23,4 @@ spec:
       selfHeal: true
     syncOptions:
       - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true  # 필드 소유자가 기록되어 Argo CD 가 스스로 붙인 finalizer 를 sync 가 지우지 않음
