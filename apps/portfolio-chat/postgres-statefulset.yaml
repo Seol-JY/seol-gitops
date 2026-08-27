@@ -15,6 +15,7 @@ spec:
       labels:
         app: postgres
     spec:
+      enableServiceLinks: false
       nodeSelector:
         tier: data-a  # 데이터가 이 노드의 /var/lib/rancher/k3s/storage 에 남으므로 옮기기 금지
       securityContext:

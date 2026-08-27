@@ -20,6 +20,8 @@ spec:
       labels:
         app: portfolio-chat
     spec:
+      # redis Service 가 REDIS_PORT=tcp://... 를 주입해 앱의 ${REDIS_PORT} 파싱을 깨뜨림
+      enableServiceLinks: false
       imagePullSecrets:
         - name: ghcr-pull
       # SSE 스트림 대기, 앱의 graceful shutdown 대기(75초)보다 길어야 함
