@@ -56,8 +56,12 @@ spec:
               value: prod
             - name: POSTGRES_HOST
               value: postgres
+            # - name: REDIS_HOST // For Test
+            #   value: redis
             - name: REDIS_HOST
-              value: redis
+              value: toxiproxy.chaos.svc.cluster.local
+            - name: REDIS_PORT
+              value: "21001"
             - name: ADMIN_LOGIN_ID
               value: admin
             - name: OPENAI_CHAT_MODEL
