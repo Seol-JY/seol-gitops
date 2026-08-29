@@ -28,6 +28,7 @@ flowchart LR
     cm[cert-manager]
     ss[Sealed Secrets]
     vm[VictoriaMetrics + Grafana<br/>worker-2 고정 · 보관 7일<br/>알림 없음]
+    tp[Toxiproxy + toxideck<br/>장애 주입 · 외부 비노출]
   end
 
   argocd -->|sync| api
@@ -38,6 +39,7 @@ flowchart LR
   cm -->|*.seol.pro 인증서| traefik
   ss -->|SealedSecret 복호화| apps1 & apps2
   vm -. 노드·파드 지표 scrape .-> apps1 & apps2
+  apps1 & apps2 -. portfolio-chat 의 Redis 연결 .-> tp
 ```
 
 | 노드 | 역할 | 사양 | 사설 IP | 공인 IP | 라벨 |
@@ -74,6 +76,8 @@ hack/             pre-commit 훅 스크립트
 | cert-manager | chart v1.21.1 |
 | Traefik | chart 40.1.4+up40.1.0 (k3s 내장, HelmChartConfig 로 값만 덮어씀) |
 | VictoriaMetrics | chart 0.91.2 / app v1.150.0 (k8s-stack, 알림 컴포넌트 제외) |
+| Toxiproxy | 2.12.0 |
+| toxideck | 0.1.0 |
 
 ## 시크릿 정책
 
@@ -98,6 +102,7 @@ kubeconfig 구성과 운영 절차는 `docs/runbook.md`.
 | k9s | `k9s` | 터미널 UI | kubeconfig 사용, 계정 없음 |
 | Argo CD | `kubectl -n argocd port-forward svc/argocd-server 8080:80` | `http://localhost:8080` | `admin` / 아래 명령으로 확인 |
 | Grafana | `kubectl -n monitoring port-forward svc/vm-grafana 3000:80` | `http://localhost:3000` | 열람은 로그인 없이, 편집은 `admin` |
+| toxideck | `kubectl -n chaos port-forward deploy/toxiproxy 8090:8080` | `http://localhost:8090` | 없음, 인증이 없어 노출 금지 |
 
 비밀번호 확인
 

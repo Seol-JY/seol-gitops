@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: toxiproxy
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Seol-JY/seol-gitops.git
+    targetRevision: main
+    path: infra/toxiproxy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chaos
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]

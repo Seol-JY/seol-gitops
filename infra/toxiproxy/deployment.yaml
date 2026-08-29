@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: toxiproxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: toxiproxy
+  template:
+    metadata:
+      labels:
+        app: toxiproxy
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: toxiproxy
+          image: ghcr.io/shopify/toxiproxy:2.12.0
+          args:
+            - -host=0.0.0.0
+            - -config=/etc/toxiproxy/proxies.json
+            - -proxy-metrics
+          ports:
+            - name: api
+              containerPort: 8474
+            - containerPort: 21001
+            - containerPort: 21002
+            - containerPort: 21003
+            - containerPort: 21004
+            - containerPort: 21005
+          volumeMounts:
+            - name: proxies
+              mountPath: /etc/toxiproxy
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /version
+              port: api
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /version
+              port: api
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsUser: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+
+        - name: toxideck
+          image: ghcr.io/seol-jy/toxideck:0.1.0
+          env:
+            - name: TOXIPROXY_URL
+              value: http://127.0.0.1:8474
+          ports:
+            - name: ui
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: ui
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: ui
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: proxies
+          configMap:
+            name: toxiproxy-proxies

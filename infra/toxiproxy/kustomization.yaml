@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: chaos
+resources:
+  - namespace.yaml
+  - service.yaml
+  - deployment.yaml
+configMapGenerator:
+  # Toxiproxy 는 부팅할 때만 config 를 읽으므로,내용이 바뀌면 이름이 바뀌어 Deployment 가 롤링되어야 반영됨
+  - name: toxiproxy-proxies
+    files:
+      - proxies.json

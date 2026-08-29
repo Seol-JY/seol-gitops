@@ -1,0 +1,8 @@
+[
+  {
+    "name": "portfolio-chat-redis",
+    "listen": "0.0.0.0:21001",
+    "upstream": "redis.portfolio-chat.svc.cluster.local:6379",
+    "enabled": true
+  }
+]

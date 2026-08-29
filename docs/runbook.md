@@ -295,3 +295,13 @@ HPA 변화는 `kube_horizontalpodautoscaler_status_current_replicas` 와 `..._de
 직접 만든 대시보드는 Grafana 에 저장되지 않는다(`persistence` 끔). JSON 으로 내보내 레포에 커밋한다
 
 되돌리기: `argocd/applications/infra-victoria-metrics.yaml` 삭제 후 push. `prune` 이 CRD 까지 지우므로 CR 도 함께 사라진다
+
+## 11. 장애 주입 (Toxiproxy)
+
+`chaos` 네임스페이스에 Toxiproxy 와 조작 UI(toxideck)를 한 파드에 둔다. 의존성이 느려지거나 끊길 때 앱이 어떻게 되는지 재현하는 용도
+
+- 프록시 정의는 `infra/toxiproxy/proxies.json`, `configMapGenerator` 가 주입한다. Toxiproxy 는 부팅할 때만 이 파일을 읽으므로 이름 접미사 해시를 켜둔다. 내용이 바뀌면 이름이 바뀌어 Deployment 가 롤링되고 그때 반영된다
+- 독 주입은 파드 메모리에만 남는다. 파드를 지우면 config 에 적힌 상태로 돌아간다
+- Ingress 를 만들지 않는다. 인증이 없어 노출하면 누구나 장애를 주입할 수 있다
+- `-proxy-metrics` 가 있어야 `/metrics` 라우트가 생긴다. 없으면 처리량 표시가 사라진다
+- 21001~21005 를 미리 열어두었다. 프록시를 추가할 때 `proxies.json` 만 고치면 되고 Deployment 와 Service 는 손대지 않는다
