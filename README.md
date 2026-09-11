@@ -16,18 +16,18 @@ flowchart LR
       argocd[Argo CD]
       svclb1[svclb :80/:443]
     end
-    subgraph w1[worker-1 · 1 OCPU/8 GB · tier=data-a]
+    subgraph w1[worker-2 · 2 OCPU/8 GB · tier=data-a]
       svclb2[svclb :80/:443]
       apps1[앱 파드]
     end
-    subgraph w2[worker-2 · 1 OCPU/8 GB · tier=data-b]
+    subgraph w2[worker-3 · 2 OCPU/8 GB · tier=data-b]
       svclb3[svclb :80/:443]
       apps2[앱 파드]
     end
     traefik[Traefik<br/>2 replica · 노드 분산<br/>TLS 종료 · HTTP 는 301/308]
     cm[cert-manager]
     ss[Sealed Secrets]
-    vm[VictoriaMetrics + Grafana<br/>worker-2 고정 · 보관 7일<br/>알림 없음]
+    vm[VictoriaMetrics + Grafana<br/>worker-3 고정 · 보관 7일<br/>알림 없음]
     tp[Toxiproxy + toxideck<br/>장애 주입 · 외부 비노출]
   end
 
@@ -45,8 +45,8 @@ flowchart LR
 | 노드 | 역할 | 사양 | 사설 IP | 공인 IP | 라벨 |
 |---|---|---|---|---|---|
 | cp-1 | k3s server, Argo CD | 2 OCPU / 8 GB | 10.0.0.1xx | 152.69.xxx.xxx | `node-role.kubernetes.io/control-plane=true` |
-| worker-1 | k3s agent | 1 OCPU / 8 GB | 10.0.0.xx | 168.107.xxx.xxx | `tier=data-a` |
-| worker-2 | k3s agent | 1 OCPU / 8 GB | 10.0.0.2xx | 134.185.xxx.xxx | `tier=data-b` |
+| worker-2 | k3s agent | 2 OCPU / 8 GB | 10.0.0.xx | 168.107.xxx.xxx | `tier=data-a` |
+| worker-3 | k3s agent | 2 OCPU / 8 GB | 10.0.0.xx | 134.185.xxx.xxx | `tier=data-b` |
 
 - 파드 CIDR `10.42.0.0/16`, 서비스 CIDR `10.43.0.0/16`
 - k3s 기본 구성: SQLite, Traefik(Ingress), ServiceLB, local-path(기본 StorageClass), metrics-server. secrets-encryption 활성

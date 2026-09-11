@@ -191,7 +191,7 @@ kubectl -n kube-system logs -l app.kubernetes.io/name=traefik --tail=5 | grep Cl
 
 | NSG | 부착 | 규칙 |
 |---|---|---|
-| `k3s-nodes` | cp-1, worker-1, worker-2 | ingress: TCP 22 ← PC IP, UDP 8472 ← 10.0.0.0/16, TCP 10250 ← 10.0.0.0/16, TCP 9100 ← 10.0.0.0/16, TCP 80/443 ← NSG `k3s-lb`. egress: all |
+| `k3s-nodes` | cp-1, worker-2, worker-3 | ingress: TCP 22 ← PC IP, UDP 8472 ← 10.0.0.0/16, TCP 10250 ← 10.0.0.0/16, TCP 9100 ← 10.0.0.0/16, TCP 80/443 ← NSG `k3s-lb`. egress: all |
 | `k3s-control-plane` | cp-1 | ingress: TCP 6443 ← 10.0.0.0/16, TCP 6443 ← PC IP |
 | `k3s-lb` | NLB `k3s-ingress` | ingress: TCP 80/443 ← 0.0.0.0/0 |
 | `instance-server` | InstanceServer | ingress: TCP 80/443 ← 0.0.0.0/0 |
@@ -237,7 +237,7 @@ curl -s --resolve <앱>.seol.pro:443:<LB 공인 IP> https://<앱>.seol.pro/
 
 되돌리기: A 레코드를 노드 공인 IP 로 되돌리려면 `k3s-nodes` 에 TCP 80/443 ← `0.0.0.0/0` 을 먼저 다시 넣어야 함. PPv2 설정은 건드릴 필요 없음
 
-## 8. 노드 추가 (worker-3)
+## 8. 노드 추가
 
 1. 호스트네임 `worker-3`, `/etc/hosts` 에 노드 블록, `/etc/cloud/cloud.cfg.d/99-preserve-hostname.cfg` 에 `preserve_hostname: true`
 2. 6절 방화벽 규칙(공통 6줄) 적용
@@ -262,7 +262,7 @@ kubectl -n argocd get applications
 
 `victoria-metrics-k8s-stack` 으로 지표와 대시보드만 운영, 알림은 두지 않음
 
-- VMSingle(시계열 저장)과 Grafana 를 `tier=data-b`(worker-2)에 고정, PVC 가 `local-path` 라 노드 로컬 디스크를 쓰므로 파드도 그 노드에 묶인다
+- VMSingle(시계열 저장)과 Grafana 를 `tier=data-b`(worker-3)에 고정, PVC 가 `local-path` 라 노드 로컬 디스크를 쓰므로 파드도 그 노드에 묶인다
 - 보관 7일, scrape 15초, PVC 5Gi. 기본값(1개월·20s·20Gi)은 부하 감상 용도에 과하다
 - 알림(Alertmanager·VMAlert·기본 룰)은 끔. 클러스터 안의 알림은 클러스터가 죽으면 나가지 않으므로 외부 감시로 따로 해결한다
 - `kubeControllerManager`·`kubeScheduler`·`kubeEtcd` scrape 를 끔. k3s 는 두 컴포넌트를 server 프로세스에 통합했고 저장소는 sqlite 라 scrape 대상이 없다
