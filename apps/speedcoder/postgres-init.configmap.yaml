@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  # 첫 기동에 빈 데이터 디렉터리일 때만 실행된다, 기존 데이터는 건드리지 않는다
+  01-schema.sql: |
+    CREATE TABLE IF NOT EXISTS leaderboard (
+      id          BIGSERIAL   PRIMARY KEY,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      file        TEXT        NOT NULL,
+      cpm         INTEGER     NOT NULL,
+      name        TEXT        NOT NULL,
+      message     TEXT,
+      correct_chr INTEGER     NOT NULL DEFAULT 0,
+      wrong_chr   INTEGER     NOT NULL DEFAULT 0
+    );
+
+    -- 순위 조회의 ORDER BY 와 열 순서·방향을 그대로 맞춘 인덱스
+    CREATE INDEX IF NOT EXISTS leaderboard_rank_idx
+      ON leaderboard (cpm DESC, wrong_chr ASC, created_at ASC);
+
+    CREATE TABLE IF NOT EXISTS counter (
+      id    INTEGER PRIMARY KEY,
+      value BIGINT  NOT NULL DEFAULT 0
+    );
+
+    INSERT INTO counter (id, value) VALUES (1, 0) ON CONFLICT (id) DO NOTHING;

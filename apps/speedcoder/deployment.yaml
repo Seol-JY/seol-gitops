@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: speedcoder
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: speedcoder
+spec:
+  # replicas 는 HPA 가 관리한다
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: speedcoder
+  template:
+    metadata:
+      labels:
+        app: speedcoder
+    spec:
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000  # 이미지의 node 사용자
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          matchLabelKeys: [pod-template-hash]  # 롤아웃 중 구버전 파드를 같이 세지 않는다
+          labelSelector:
+            matchLabels:
+              app: speedcoder
+      containers:
+        - name: server
+          image: ghcr.io/seol-jy/speedcoder
+          imagePullPolicy: IfNotPresent  # 태그가 커밋 SHA 라 내용이 바뀌지 않는다
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: speedcoder-env
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 3
+            failureThreshold: 20
+          livenessProbe:
+            # DB 를 보지 않는다, DB 가 흔들릴 때 파드까지 재시작되면 복구가 더 느려진다
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp  # readOnlyRootFilesystem 이라 쓰기 공간이 필요하다
+      volumes:
+        - name: tmp
+          emptyDir: {}
