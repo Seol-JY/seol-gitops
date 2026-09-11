@@ -13,4 +13,4 @@ resources:
   - hpa.yaml
 images:
   - name: ghcr.io/seol-jy/speedcoder
-    newTag: b4e1939
+    newTag: c3bb82a
