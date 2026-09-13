@@ -19,3 +19,6 @@ sealed-secrets-key*.yaml
 .idea/
 .vscode/
 *.swp
+
+# Excalidraw 편집 원본 (커밋하지 않음, 산출물은 docs/architecture.svg)
+*.excalidraw

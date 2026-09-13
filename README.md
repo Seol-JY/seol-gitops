@@ -4,43 +4,7 @@ k3s 클러스터를 Argo CD 로 운영하는 GitOps 레포지터리, `main` 브�
 
 ## 구성
 
-```mermaid
-flowchart LR
-  dev[개발자<br/>git push] --> gh[(GitHub<br/>seol-gitops)]
-  gh -.폴링.-> argocd
-
-  subgraph oci[OCI ap-chuncheon-1 · VCN 10.0.0.0/16]
-    nlb[Network Load Balancer<br/>TCP 80·443 패스스루<br/>443 은 PPv2<br/>헬스체크 HTTP :80 /ping]
-    subgraph cp[cp-1 · 2 OCPU/8 GB · control-plane]
-      api[k3s server<br/>API 6443]
-      argocd[Argo CD]
-      svclb1[svclb :80/:443]
-    end
-    subgraph w1[worker-2 · 2 OCPU/8 GB · tier=data-a]
-      svclb2[svclb :80/:443]
-      apps1[앱 파드]
-    end
-    subgraph w2[worker-3 · 2 OCPU/8 GB · tier=data-b]
-      svclb3[svclb :80/:443]
-      apps2[앱 파드]
-    end
-    traefik[Traefik<br/>2 replica · 노드 분산<br/>TLS 종료 · HTTP 는 301/308]
-    cm[cert-manager]
-    ss[Sealed Secrets]
-    vm[VictoriaMetrics + Grafana<br/>worker-3 고정 · 보관 7일<br/>알림 없음]
-    tp[Toxiproxy + toxideck<br/>장애 주입 · 외부 비노출]
-  end
-
-  argocd -->|sync| api
-  user[사용자] -->|https app.seol.pro| cf[Cloudflare DNS<br/>DNS only]
-  cf --> nlb
-  nlb --> svclb1 & svclb2 & svclb3 --> traefik --> apps1 & apps2
-  cm -.DNS01 TXT.-> cfapi[Cloudflare API]
-  cm -->|*.seol.pro 인증서| traefik
-  ss -->|SealedSecret 복호화| apps1 & apps2
-  vm -. 노드·파드 지표 scrape .-> apps1 & apps2
-  apps1 & apps2 -. portfolio-chat 의 Redis 연결 .-> tp
-```
+![k3s 클러스터 구성도](docs/architecture.svg)
 
 | 노드 | 역할 | 사양 | 사설 IP | 공인 IP | 라벨 |
 |---|---|---|---|---|---|
