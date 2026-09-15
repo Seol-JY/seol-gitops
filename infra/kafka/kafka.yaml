@@ -33,10 +33,13 @@ spec:
       affinity:
         podAntiAffinity:
           # 브로커 2대가 한 노드에 몰리면 쿼럼·ISR 이 동시에 깨짐
+          # 셀렉터는 브로커만 지정한다. strimzi.io/cluster 만 쓰면 entity-operator 까지
+          # 걸려서(required 규칙은 대칭 평가) 그 파드가 스케줄되지 못한다
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
                   strimzi.io/cluster: kafka
+                  strimzi.io/name: kafka-kafka
               topologyKey: kubernetes.io/hostname
 ---
 apiVersion: kafka.strimzi.io/v1
