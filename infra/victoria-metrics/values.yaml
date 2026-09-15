@@ -87,7 +87,9 @@ grafana:
       cpu: 50m
       memory: 512Mi
     limits:
-      memory: 640Mi  # 대시보드 39개를 provisioning 하며 실측 361Mi, 256Mi 로는 OOMKilled 됐다
+      # 대시보드 39개일 때 실측 361Mi 였고 640Mi 로 잡았는데, Strimzi 대시보드 2개(114KB)를
+      # 더하니 629Mi 까지 올라 liveness probe 가 타임아웃되고 재시작됐다
+      memory: 1Gi
 
 kube-state-metrics:
   resources:
