@@ -33,8 +33,8 @@ spec:
       affinity:
         podAntiAffinity:
           # 브로커 2대가 한 노드에 몰리면 쿼럼·ISR 이 동시에 깨짐
-          # 셀렉터는 브로커만 지정한다. strimzi.io/cluster 만 쓰면 entity-operator 까지
-          # 걸려서(required 규칙은 대칭 평가) 그 파드가 스케줄되지 못한다
+          # 셀렉터는 브로커 한정. cluster 라벨만 쓰면 required 규칙의 대칭 평가로
+          # entity-operator 가 스케줄 불가
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:

@@ -87,9 +87,7 @@ grafana:
       cpu: 50m
       memory: 512Mi
     limits:
-      # 대시보드 39개일 때 실측 361Mi 였고 640Mi 로 잡았는데, Strimzi 대시보드 2개(114KB)를
-      # 더하니 629Mi 까지 올라 liveness probe 가 타임아웃되고 재시작됐다
-      memory: 1Gi
+      memory: 1Gi  # 대시보드 41개 실측 629Mi. 640Mi 에서 liveness 타임아웃 재시작
 
 kube-state-metrics:
   resources:

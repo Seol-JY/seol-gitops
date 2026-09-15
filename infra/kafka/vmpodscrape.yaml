@@ -15,7 +15,7 @@ spec:
         - regex: __meta_kubernetes_pod_label_(strimzi_io_.+)
           replacement: $1
           action: labelmap
-        # 공식 대시보드가 브로커를 kubernetes_pod_name 으로 구분한다
+        # 공식 대시보드의 브로커 구분 키
         - sourceLabels: [__meta_kubernetes_pod_name]
           targetLabel: kubernetes_pod_name
           action: replace

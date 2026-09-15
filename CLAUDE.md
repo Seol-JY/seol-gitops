@@ -16,7 +16,7 @@ k3s 클러스터를 Argo CD 로 운영하는 GitOps 레포지터리, 문서와 �
 - 커밋 메시지는 `type(scope): 설명` 한 줄 한국어, type 은 feat/fix/chore/docs/refactor, scope 는 argocd/infra/apps/docs 또는 컴포넌트명 (예: `feat(infra): cert-manager 추가`)
 - 시크릿은 SealedSecret(`*.sealedsecret.yaml`)만 커밋, 평문 `kind: Secret`·토큰·키·kubeconfig 는 어떤 파일에도 저장 금지
 - 앱 파드 개수는 `replicas` 대신 HPA 로 관리, 컨테이너에 `resources.requests` 필수
-- 매니페스트 주석은 비자명한 설정에 한 줄만, 설명은 README 와 docs 에 기재
+- 주석은 코드로 설명되지 않는 의사결정 맥락이 있을 때만 제한적으로, 개조식 한 줄로 작성 (서술형 문장 금지), 설명은 README 와 docs 에 기재
 - 문서의 IP·OCID 같은 식별 정보는 일부 마스킹
 - 버전은 명시적으로 고정 (`targetRevision`, install.yaml 태그)
 - 파괴적 작업(방화벽, 삭제, 재부팅, 노드 변경)은 실행 전 사용자 확인
