@@ -1,0 +1,100 @@
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: dual-role
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  replicas: 3
+  # 노드 3대라 controller·broker 를 한 파드에 합침
+  roles:
+    - controller
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: persistent-claim
+        size: 15Gi
+        class: local-path
+        kraftMetadata: shared
+        deleteClaim: false
+  resources:
+    requests:
+      cpu: 300m
+      memory: 1Gi
+    limits:
+      memory: 2Gi  # 힙 1Gi + 페이지 캐시 여유
+  jvmOptions:
+    "-Xms": 1024m
+    "-Xmx": 1024m
+  template:
+    pod:
+      affinity:
+        podAntiAffinity:
+          # 브로커 2대가 한 노드에 몰리면 쿼럼·ISR 이 동시에 깨짐
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  strimzi.io/cluster: kafka
+              topologyKey: kubernetes.io/hostname
+---
+apiVersion: kafka.strimzi.io/v1
+kind: Kafka
+metadata:
+  name: kafka
+spec:
+  kafka:
+    version: 4.3.1
+    metadataVersion: 4.3-IV0
+    listeners:
+      # 브로커 간·컨트롤러 통신은 Strimzi 가 별도 TLS 처리
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+    config:
+      # RF3 + ISR2: 브로커 1대까지 잃어도 쓰기 유지, 2대 잃으면 거부
+      default.replication.factor: 3
+      min.insync.replicas: 2
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      num.partitions: 3
+      # local-path 는 PVC 크기를 강제하지 않음. retention 이 유일한 디스크 안전장치
+      log.retention.hours: 24
+      log.retention.bytes: 536870912  # 파티션당. 브로커당 = 이 값 × 전체 파티션 수
+      log.segment.bytes: 134217728  # retention.bytes 보다 작아야 세그먼트가 실제로 삭제됨
+      # 토픽은 KafkaTopic 으로만 생성
+      auto.create.topics.enable: false
+    metricsConfig:
+      type: jmxPrometheusExporter
+      valueFrom:
+        configMapKeyRef:
+          name: kafka-metrics
+          key: kafka-metrics-config.yml
+  entityOperator:
+    topicOperator:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 320Mi
+    userOperator:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 320Mi
+  # 컨슈머 랙은 브로커 JMX 에 없어 이 컴포넌트가 따로 계산
+  kafkaExporter:
+    topicRegex: ".*"
+    groupRegex: ".*"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 192Mi

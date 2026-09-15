@@ -1,0 +1,13 @@
+# arm64 이미지는 quay.io 에만 있음
+defaultImageRegistry: quay.io
+defaultImageTag: 1.2.0
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 384Mi
+  limits:
+    cpu: null  # 차트 기본 1000m 해제
+    memory: 512Mi
+
+logLevel: INFO
