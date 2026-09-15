@@ -16,5 +16,18 @@ configMapGenerator:
     options:
       labels:
         grafana_dashboard: "1"
+  # Strimzi 1.2.0 examples/metrics/grafana-dashboards 원본
+  - name: grafana-dashboard-strimzi-kafka
+    files:
+      - strimzi-kafka.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+  - name: grafana-dashboard-strimzi-kafka-exporter
+    files:
+      - strimzi-kafka-exporter.json
+    options:
+      labels:
+        grafana_dashboard: "1"
 generatorOptions:
   disableNameSuffixHash: true  # 이름이 고정이어야 sidecar 가 같은 대시보드의 갱신으로 인식한다
