@@ -1,0 +1,76 @@
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: market-trades-v1
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  topicName: market.trades.v1
+  partitions: 6
+  replicas: 3
+  config:
+    retention.ms: 259200000
+    # 파티션당. local-path 가 PVC 크기를 강제하지 않아 이쪽이 유일한 디스크 방어선
+    retention.bytes: 268435456
+    # retention.bytes 보다 작아야 세그먼트가 실제로 삭제됨
+    segment.bytes: 67108864
+    min.insync.replicas: 2
+    # 프로듀서가 zstd 로 압축한 것을 브로커가 다시 풀지 않음
+    compression.type: producer
+    cleanup.policy: delete
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: market-orderbook-v1
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  topicName: market.orderbook.v1
+  partitions: 6
+  replicas: 3
+  config:
+    retention.ms: 259200000
+    # 실측상 시간보다 크기가 먼저 걸림. 미국장 1.1 거래일, 국내장 2.2시간
+    retention.bytes: 268435456
+    segment.bytes: 67108864
+    min.insync.replicas: 2
+    compression.type: producer
+    cleanup.policy: delete
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: market-candles-1m-v1
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  topicName: market.candles.1m.v1
+  partitions: 3
+  replicas: 3
+  config:
+    retention.ms: 2592000000
+    retention.bytes: 134217728
+    segment.bytes: 33554432
+    min.insync.replicas: 2
+    compression.type: producer
+    cleanup.policy: delete
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: alerts-raised-v1
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  topicName: alerts.raised.v1
+  # 양이 적고 알림 피드의 전체 순서가 중요
+  partitions: 1
+  replicas: 3
+  config:
+    retention.ms: 7776000000
+    retention.bytes: 67108864
+    segment.bytes: 16777216
+    min.insync.replicas: 2
+    compression.type: producer
+    cleanup.policy: delete
