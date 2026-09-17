@@ -10,7 +10,6 @@ resources:
 configMapGenerator:
   - name: producer-config
     envs: [symbols.env]
-
 images:
   - name: ghcr.io/seol-jy/marketpulse-producer
-    newTag: 2b36ebe3a5a82c0908bba7e428a25fa68aff0ccf
+    newTag: cff41b9
