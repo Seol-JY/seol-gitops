@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: marketpulse-producer
+  labels:
+    app: marketpulse-producer
+spec:
+  selector:
+    app: marketpulse-producer
+  ports:
+    - name: management
+      port: 8080
+      targetPort: management

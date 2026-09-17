@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketpulse-producer
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: marketpulse-producer
+spec:
+  # 소스 연결 한도 2개. 수평 확장 불가라 HPA 미적용
+  replicas: 1
+  # RollingUpdate 는 배포 중 파드 2개 겹침. 연결 4개로 한도 초과
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: marketpulse-producer
+  template:
+    metadata:
+      labels:
+        app: marketpulse-producer
+    spec:
+      enableServiceLinks: false
+      # 종료 시 큐 잔여분을 Kafka 로 내보낼 시간
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: producer
+          image: ghcr.io/seol-jy/marketpulse-producer
+          imagePullPolicy: IfNotPresent  # 태그가 커밋 SHA, 내용 불변
+          ports:
+            - name: management
+              containerPort: 8080
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka-kafka-bootstrap.kafka.svc:9092
+            - name: INGEST_PRODUCER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          envFrom:
+            - secretRef:
+                name: toss-openapi
+            - configMapRef:
+                name: producer-config
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            # 외부 의존성 장애에 파드 재시작을 엮지 않기 위함
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: management }
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp  # readOnlyRootFilesystem 용 쓰기 공간
+      volumes:
+        - name: tmp
+          emptyDir: {}
