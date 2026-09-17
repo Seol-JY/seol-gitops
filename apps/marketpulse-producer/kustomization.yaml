@@ -13,4 +13,4 @@ configMapGenerator:
 
 images:
   - name: ghcr.io/seol-jy/marketpulse-producer
-    newTag: PLACEHOLDER
+    newTag: 2b36ebe3a5a82c0908bba7e428a25fa68aff0ccf
