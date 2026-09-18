@@ -12,4 +12,4 @@ configMapGenerator:
     envs: [symbols.env]
 images:
   - name: ghcr.io/seol-jy/marketpulse-producer
-    newTag: caf9028
+    newTag: 87e4a1a
