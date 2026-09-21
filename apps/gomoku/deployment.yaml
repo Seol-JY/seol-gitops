@@ -46,7 +46,7 @@ spec:
               value: "0.1.0"
             # 소프트 업데이트 안내. 클라이언트 릴리스마다 함께 올린다
             - name: GOMOKU_LATEST_CLIENT_VERSION
-              value: "0.1.0"
+              value: "0.1.1"
             - name: GOMOKU_SHUTDOWN_TIMEOUT_SECS
               value: "10"
             - name: RUST_LOG
