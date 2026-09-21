@@ -11,4 +11,4 @@ resources:
   - ingress.yaml
 images:
   - name: ghcr.io/seol-jy/gomoku-server
-    newTag: "9da1d0b"  # gomoku 레포 server-image 워크플로가 커밋 SHA 로 갱신
+    newTag: "99e7fff"  # gomoku 레포 server-image 워크플로가 커밋 SHA 로 갱신
